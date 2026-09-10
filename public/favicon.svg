@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Crisp White Card Surface (No Black) -->
+  <rect x="1" y="1" width="30" height="30" rx="8" fill="#ffffff" stroke="#e4e4e7" stroke-width="1.5"/>
+  <!-- Primary Emerald Brand Sparkle -->
+  <path d="M15 5 C15 10.5 10.5 15 5 15 C10.5 15 15 19.5 15 25 C15 19.5 19.5 15 25 15 C19.5 15 15 10.5 15 5 Z" fill="#059669"/>
+  <!-- Secondary Emerald Accent Sparkle -->
+  <path d="M23 4 C23 6.5 21 8.5 18.5 8.5 C21 8.5 23 10.5 23 13 C23 10.5 25 8.5 27.5 8.5 C25 8.5 23 6.5 23 4 Z" fill="#10b981"/>
+  <!-- Small Accent Dot Sparkle -->
+  <circle cx="24" cy="22" r="1.75" fill="#10b981"/>
+</svg>

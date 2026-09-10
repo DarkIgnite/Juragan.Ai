@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   X,
@@ -9,7 +9,7 @@ import {
   Send,
   Package,
   StopCircle,
-  TrendingUp,
+  Radio,
 } from 'lucide-react';
 import { Product, SaleTransaction, UserAccount, VoiceConsultationMessage } from '../types';
 
@@ -22,6 +22,70 @@ interface VoiceConsultationModalProps {
 }
 
 const easeOutCurve = [0.23, 1, 0.32, 1] as const;
+
+// Helper to format text naturally for Indonesian Text-To-Speech
+const formatForIndonesianSpeech = (text: string): string => {
+  if (!text) return '';
+  return text
+    // Remove links
+    .replace(/https?:\/\/\S+/g, '')
+    // Remove markdown symbols
+    .replace(/[*#_`~[\]()]/g, ' ')
+    // Currency formatting to spoken Indonesian words
+    .replace(/Rp\s?(\d+)\.(\d+)\.(\d+)/gi, (_, m1, m2, m3) => {
+      const j = parseInt(m1, 10);
+      const r = parseInt(m2, 10);
+      return `${j} juta ${r > 0 ? r + ' ribu' : ''} rupiah`;
+    })
+    .replace(/Rp\s?(\d+)\.(\d+)/gi, (_, m1, m2) => {
+      const r = parseInt(m1, 10);
+      const s = parseInt(m2, 10);
+      return `${r} ribu ${s > 0 ? s : ''} rupiah`;
+    })
+    .replace(/Rp\s?(\d+)/gi, (_, m1) => `${m1} rupiah`)
+    // Indonesian business acronyms & terms for natural pronunciation
+    .replace(/\bUMKM\b/gi, 'U M K M')
+    .replace(/\bJuragan\.AI\b/gi, 'Juragan A I')
+    .replace(/\.AI\b/gi, ' A I')
+    .replace(/\bAI\b/gi, 'A I')
+    .replace(/\bpcs\b/gi, 'buah')
+    .replace(/\bqty\b/gi, 'jumlah')
+    .replace(/\bkg\b/gi, 'kilogram')
+    .replace(/\bgr\b/gi, 'gram')
+    .replace(/\bbln\b/gi, 'bulan')
+    .replace(/\bthn\b/gi, 'tahun')
+    .replace(/\bHPP\b/gi, 'H P P')
+    .replace(/[-•—]/g, ', ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+// Helper to find the best Indonesian voice available in the browser
+const findIndonesianVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
+  if (!voices || voices.length === 0) return null;
+
+  const idVoices = voices.filter(
+    (v) =>
+      v.lang === 'id-ID' ||
+      v.lang === 'id_ID' ||
+      v.lang.toLowerCase().startsWith('id') ||
+      v.name.toLowerCase().includes('indonesia') ||
+      v.name.toLowerCase().includes('bahasa')
+  );
+
+  if (idVoices.length > 0) {
+    // Prioritize natural Indonesian voices (Google Bahasa Indonesia, Microsoft Gadis/Ardi, Natural)
+    const preferred =
+      idVoices.find((v) => v.name.toLowerCase().includes('google')) ||
+      idVoices.find((v) => v.name.toLowerCase().includes('natural')) ||
+      idVoices.find((v) => v.name.toLowerCase().includes('gadis')) ||
+      idVoices.find((v) => v.name.toLowerCase().includes('ardi')) ||
+      idVoices[0];
+    return preferred;
+  }
+
+  return null;
+};
 
 // Dedicated Fluid Visual Waveform Animation (Canvas-based)
 const WaveformVisualizer: React.FC<{
@@ -68,16 +132,19 @@ const WaveformVisualizer: React.FC<{
         const binCount = Math.min(32, dataArray.length);
         for (let i = 0; i < binCount; i++) sum += dataArray[i];
         const avg = sum / binCount;
-        currentAmp = 12 + (avg / 255) * 55;
+        currentAmp = 14 + (avg / 255) * 60;
       } else if (isSpeaking) {
         currentAmp = 18 + (volumeScale - 1.0) * 110;
+      } else if (isListening) {
+        // Active dynamic listening wave even if mic stream hasn't piped to analyser yet
+        currentAmp = 18 + Math.sin(phase * 2.8) * 8;
       } else {
         currentAmp = 8 + Math.sin(phase * 1.2) * 3;
       }
 
-      phase += isSpeaking ? 0.08 : isListening ? 0.05 : 0.025;
+      phase += isSpeaking ? 0.08 : isListening ? 0.06 : 0.025;
 
-      // Google-inspired vibrant fluid sound waves (Blue, Emerald, Yellow/Amber, Coral/Red)
+      // Google-inspired vibrant fluid sound waves (Blue, Emerald, Yellow/Amber, Coral/Red, Purple)
       const waves = [
         { color: 'rgba(66, 133, 244, 0.65)', speed: 1.0, freq: 0.016, phaseOff: 0, lineWidth: 3 },
         { color: 'rgba(52, 168, 83, 0.60)', speed: 1.25, freq: 0.022, phaseOff: 1.4, lineWidth: 2.5 },
@@ -96,7 +163,6 @@ const WaveformVisualizer: React.FC<{
         ctx.lineJoin = 'round';
 
         for (let x = 0; x <= width; x += 3) {
-          // Attenuate near left & right edges so wave smoothly flows in and out
           const envelope = Math.sin((x / width) * Math.PI);
           const y =
             centerY +
@@ -137,6 +203,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const [messages, setMessages] = useState<VoiceConsultationMessage[]>([]);
   const [voiceVolumeScale, setVoiceVolumeScale] = useState(1.0);
   const [analyserInstance, setAnalyserInstance] = useState<AnalyserNode | null>(null);
+  const [activeVoiceName, setActiveVoiceName] = useState<string>('Bahasa Indonesia');
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([
     'Stok Sambal Bawang sisa berapa?',
     'Produk apa yang stoknya menipis?',
@@ -144,76 +211,53 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     'Apa produk yang paling laris?',
   ]);
 
-  // Refs for Web Audio API & Speech Synthesis
+  // Robust Intent & Engine Refs
+  const isListeningDesiredRef = useRef<boolean>(false);
+  const recognitionRef = useRef<any>(null);
+  const speechSynthRef = useRef<SpeechSynthesis | null>(null);
+  const activeVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const recognitionRef = useRef<any>(null);
-  const speechSynthRef = useRef<SpeechSynthesis | null>(null);
-  const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const currentAccumulatedTextRef = useRef<string>('');
 
-  // Initialize Web Speech API
+  // 1. Initialize Voices & Listen to dynamic voice list updates
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      speechSynthRef.current = window.speechSynthesis || null;
+    if (typeof window === 'undefined') return;
 
-      const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    speechSynthRef.current = window.speechSynthesis || null;
 
-      if (SpeechRecognition) {
-        try {
-          const recognition = new SpeechRecognition();
-          recognition.lang = 'id-ID';
-          recognition.continuous = false;
-          recognition.interimResults = true;
+    const loadVoices = () => {
+      if (!speechSynthRef.current) return;
+      const allVoices = speechSynthRef.current.getVoices();
+      if (!allVoices || allVoices.length === 0) return;
 
-          recognition.onstart = () => {
-            setIsListening(true);
-            setInterimTranscript('');
-          };
-
-          recognition.onresult = (event: any) => {
-            let currentInterim = '';
-            let finalTrans = '';
-
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
-              const item = event.results[i];
-              if (item.isFinal) {
-                finalTrans += item[0].transcript;
-              } else {
-                currentInterim += item[0].transcript;
-              }
-            }
-
-            if (currentInterim) {
-              setInterimTranscript(currentInterim);
-            }
-
-            if (finalTrans) {
-              setTranscript(finalTrans);
-              setInterimTranscript('');
-              handleSendQuery(finalTrans);
-            }
-          };
-
-          recognition.onerror = (event: any) => {
-            console.info('Speech recognition notice:', event.error);
-            setIsListening(false);
-            stopMicVisualization();
-          };
-
-          recognition.onend = () => {
-            setIsListening(false);
-            stopMicVisualization();
-          };
-
-          recognitionRef.current = recognition;
-        } catch {}
+      const indonesianVoice = findIndonesianVoice(allVoices);
+      if (indonesianVoice) {
+        activeVoiceRef.current = indonesianVoice;
+        setActiveVoiceName(indonesianVoice.name.replace(/(Google|Microsoft|Natural|Online)\s*/gi, '').trim() || 'Bahasa Indonesia');
+      } else {
+        setActiveVoiceName('Bahasa Indonesia (id-ID)');
       }
+    };
+
+    loadVoices();
+    if (window.speechSynthesis) {
+      window.speechSynthesis.onvoiceschanged = loadVoices;
     }
 
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  // 2. Stop speech & listening on close or unmount
+  useEffect(() => {
     return () => {
       stopSpeaking();
       stopListening();
@@ -221,21 +265,21 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     };
   }, []);
 
-  // Initial welcome message
+  // Initial welcome message with pure Indonesian pronunciation
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const greeting: VoiceConsultationMessage = {
         id: 'greet-1',
         role: 'assistant',
         text: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan.AI untuk toko ${currentUser.storeName}.\nSilakan tanyakan sisa stok produk, omzet penjualan, atau konsultasi bisnis Anda.`,
-        speechText: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan AI. Silakan tanyakan sisa stok produk atau omzet toko Anda.`,
+        speechText: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan A I untuk toko ${currentUser.storeName}. Silakan tanyakan sisa stok produk atau omzet penjualan toko Anda.`,
         timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
         referencedProducts: products.filter((p) => p.stock <= (p.minStockAlert || 5)).slice(0, 2),
       };
       setMessages([greeting]);
       setTimeout(() => {
         speakText(greeting.speechText || greeting.text);
-      }, 500);
+      }, 600);
     }
   }, [isOpen]);
 
@@ -277,13 +321,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     };
   }, [isSpeaking, isListening]);
 
-  // Setup Web Audio Analyser for User Voice input
+  // Safe Web Audio Analyser for User Voice input
   const startMicVisualization = async () => {
     try {
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       micStreamRef.current = stream;
 
       const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+
       const audioCtx = new AudioCtx();
       audioContextRef.current = audioCtx;
 
@@ -298,21 +346,22 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       const dataArray = new Uint8Array(analyser.frequencyBinCount);
 
       const updateMicVolume = () => {
+        if (!analyserRef.current) return;
         analyser.getByteFrequencyData(dataArray);
         let sum = 0;
         for (let i = 0; i < dataArray.length; i++) {
           sum += dataArray[i];
         }
         const average = sum / dataArray.length;
-        const micScale = 1.0 + Math.min(average / 85, 0.45);
+        const micScale = 1.0 + Math.min(average / 80, 0.45);
         setVoiceVolumeScale(micScale);
 
         animationFrameRef.current = requestAnimationFrame(updateMicVolume);
       };
 
       updateMicVolume();
-    } catch (err) {
-      console.info('Mic visualization notice:', err);
+    } catch {
+      // If getUserMedia fails or is delayed, speech recognition continues safely!
     }
   };
 
@@ -332,72 +381,204 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     setAnalyserInstance(null);
   };
 
+  // 3. Robust Speech-To-Text Recognition (Fixed split-second disconnect bug)
+  const createSpeechRecognitionInstance = useCallback(() => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) return null;
+
+    try {
+      const recognition = new SpeechRecognition();
+      // Force Indonesian language model
+      recognition.lang = 'id-ID';
+      // Crucial: continuous = true keeps the session alive so it doesn't shut down in a fraction of a second!
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        setIsListening(true);
+        setInterimTranscript('');
+      };
+
+      recognition.onresult = (event: any) => {
+        let currentInterim = '';
+        let finalTrans = '';
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const item = event.results[i];
+          if (item.isFinal) {
+            finalTrans += item[0].transcript;
+          } else {
+            currentInterim += item[0].transcript;
+          }
+        }
+
+        if (currentInterim) {
+          setInterimTranscript(currentInterim);
+        }
+
+        if (finalTrans) {
+          currentAccumulatedTextRef.current += (currentAccumulatedTextRef.current ? ' ' : '') + finalTrans;
+          setTranscript(currentAccumulatedTextRef.current);
+          setInterimTranscript('');
+
+          // Reset silence timer: automatically submit query 2 seconds after user finishes speaking sentence
+          if (silenceTimerRef.current) {
+            clearTimeout(silenceTimerRef.current);
+          }
+          silenceTimerRef.current = setTimeout(() => {
+            if (isListeningDesiredRef.current && currentAccumulatedTextRef.current.trim()) {
+              const textToSend = currentAccumulatedTextRef.current.trim();
+              stopListening();
+              handleSendQuery(textToSend);
+            }
+          }, 2000);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition status:', event.error);
+        // Do NOT stop on 'no-speech' or 'aborted' - give the user plenty of time to talk!
+        if (event.error === 'no-speech' || event.error === 'aborted') {
+          return;
+        }
+
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          isListeningDesiredRef.current = false;
+          setIsListening(false);
+          stopMicVisualization();
+        }
+      };
+
+      recognition.onend = () => {
+        // If the user hasn't explicitly tapped stop or submitted, automatically restart recognition!
+        // This eliminates the bug where the browser engine cuts off listening after 500ms!
+        if (isListeningDesiredRef.current) {
+          try {
+            recognition.start();
+          } catch {
+            setTimeout(() => {
+              if (isListeningDesiredRef.current) {
+                try {
+                  recognition.start();
+                } catch {}
+              }
+            }, 250);
+          }
+        } else {
+          setIsListening(false);
+          stopMicVisualization();
+        }
+      };
+
+      return recognition;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const startListening = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+    }
+
+    setTranscript('');
+    setInterimTranscript('');
+    currentAccumulatedTextRef.current = '';
+    isListeningDesiredRef.current = true;
+    setIsListening(true);
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    try {
+      if (!recognitionRef.current) {
+        recognitionRef.current = createSpeechRecognitionInstance();
+      }
+
+      if (recognitionRef.current) {
+        try {
+          recognitionRef.current.start();
+        } catch {
+          // If already started or stale, recreate instance cleanly
+          recognitionRef.current = createSpeechRecognitionInstance();
+          recognitionRef.current?.start();
+        }
+      }
+    } catch (err) {
+      console.warn('Recognition start exception:', err);
+    }
+
+    // Start wave visualizer safely without blocking STT
+    startMicVisualization();
+  };
+
+  const stopListening = () => {
+    isListeningDesiredRef.current = false;
+    setIsListening(false);
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+
+    stopMicVisualization();
+  };
+
   const toggleListening = () => {
     if (isSpeaking) {
       stopSpeaking();
     }
 
     if (isListening) {
+      // If user taps while listening and text was spoken, send it!
+      const pendingText = (currentAccumulatedTextRef.current || interimTranscript).trim();
       stopListening();
+      if (pendingText) {
+        handleSendQuery(pendingText);
+      }
     } else {
       startListening();
     }
   };
 
-  const startListening = () => {
-    setTranscript('');
-    setInterimTranscript('');
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.start();
-        startMicVisualization();
-      } catch {
-        setIsListening(true);
-        startMicVisualization();
-      }
-    } else {
-      setIsListening(true);
-      startMicVisualization();
-    }
-  };
-
-  const stopListening = () => {
-    setIsListening(false);
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.stop();
-      } catch {}
-    }
-    stopMicVisualization();
-  };
-
+  // 4. Pure Indonesian Text-To-Speech (TTS)
   const speakText = (text: string) => {
     if (isMuted || !speechSynthRef.current) return;
 
-    const cleanSpeech = text
-      .replace(/[*#_`~[\]()]/g, '')
-      .replace(/https?:\/\/\S+/g, '')
-      .trim();
-
-    if (!cleanSpeech) return;
+    const spokenClean = formatForIndonesianSpeech(text);
+    if (!spokenClean) return;
 
     try {
       speechSynthRef.current.cancel();
 
-      const utterance = new SpeechSynthesisUtterance(cleanSpeech);
-      utterance.lang = 'id-ID';
-      utterance.rate = 1.02;
+      const utterance = new SpeechSynthesisUtterance(spokenClean);
+      utterance.lang = 'id-ID'; // Standard Indonesian Language Code
+      utterance.rate = 0.98; // Natural, conversational Indonesian pace
       utterance.pitch = 1.0;
 
-      const voices = speechSynthRef.current.getVoices();
-      const idVoice = voices.find(
-        (v) =>
-          v.lang.startsWith('id') ||
-          v.name.toLowerCase().includes('indonesia') ||
-          v.name.toLowerCase().includes('google bahasa')
-      );
-      if (idVoice) {
-        utterance.voice = idVoice;
+      // Assign verified Indonesian voice
+      let voice = activeVoiceRef.current;
+      if (!voice && speechSynthRef.current) {
+        const voices = speechSynthRef.current.getVoices();
+        voice = findIndonesianVoice(voices);
+        if (voice) {
+          activeVoiceRef.current = voice;
+        }
+      }
+
+      if (voice) {
+        utterance.voice = voice;
       }
 
       utterance.onstart = () => {
@@ -418,7 +599,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         setVoiceVolumeScale(1.0);
       };
 
-      currentUtteranceRef.current = utterance;
       speechSynthRef.current.speak(utterance);
     } catch {
       setIsSpeaking(false);
@@ -438,9 +618,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     if (!trimmed || isLoading) return;
 
     stopListening();
-    stopSpeaking();
-    setIsLoading(true);
     setInputText('');
+    setTranscript('');
+    setInterimTranscript('');
+    currentAccumulatedTextRef.current = '';
 
     const userMsg: VoiceConsultationMessage = {
       id: 'msg-' + Date.now(),
@@ -448,23 +629,25 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       text: trimmed,
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
     };
+
     setMessages((prev) => [...prev, userMsg]);
+    setIsLoading(true);
 
     try {
-      const response = await fetch('/api/ai/voice-consultation', {
+      const response = await fetch('/api/ai-voice-consultation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           query: trimmed,
+          history: messages.slice(-5).map((m) => ({ role: m.role, text: m.text })),
+          products,
+          transactions: transactions.slice(0, 30),
           storeProfile: {
             storeName: currentUser.storeName,
             ownerName: currentUser.name,
-            category: currentUser.category,
-            city: currentUser.city,
+            category: 'Kuliner & Ritel UMKM',
+            city: 'Indonesia',
           },
-          products,
-          transactions,
-          history: messages.slice(-4),
         }),
       });
 
@@ -491,7 +674,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         throw new Error('Gagal mendapatkan respon AI.');
       }
     } catch {
-      // Local fallback with live store products
+      // Local fallback in natural Indonesian with live store products
       const lower = trimmed.toLowerCase();
       let replySpeech = '';
       let replyDisplay = '';
@@ -500,7 +683,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       const matched = products.find((p) => lower.includes(p.name.toLowerCase()));
       if (matched) {
         refProds = [matched];
-        replySpeech = `Stok ${matched.name} saat ini tersisa ${matched.stock} ${matched.unit}. Harganya Rp${matched.sellingPrice.toLocaleString('id-ID')}.`;
+        replySpeech = `Stok ${matched.name} saat ini tersisa ${matched.stock} ${matched.unit}. Harganya ${matched.sellingPrice.toLocaleString('id-ID')} rupiah.`;
         replyDisplay = `📦 **${matched.name}**\n- Sisa Stok: **${matched.stock} ${matched.unit}**\n- Batas Kritis: ${matched.minStockAlert} ${matched.unit}\n- Harga Jual: Rp${matched.sellingPrice.toLocaleString('id-ID')}`;
       } else if (lower.includes('stok') || lower.includes('habis')) {
         const low = products.filter((p) => p.stock <= (p.minStockAlert || 5));
@@ -515,11 +698,11 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             : `✅ Semua ${products.length} produk memiliki stok yang aman.`;
       } else if (lower.includes('omzet') || lower.includes('penjualan')) {
         const total = transactions.reduce((acc, t) => acc + (t.totalPrice || 0), 0);
-        replySpeech = `Total omzet penjualan toko saat ini tercatat sebesar Rp${total.toLocaleString('id-ID')}.`;
+        replySpeech = `Total omzet penjualan toko saat ini tercatat sebesar ${total.toLocaleString('id-ID')} rupiah dari ${transactions.length} transaksi.`;
         replyDisplay = `📊 **Total Omzet**: Rp${total.toLocaleString('id-ID')} dari ${transactions.length} transaksi.`;
       } else {
-        replySpeech = `Halo Juragan ${currentUser.name}, saya siap membantu mengecek stok atau penjualan toko ${currentUser.storeName}.`;
-        replyDisplay = `Siap membantu Juragan! Silakan tanyakan stok produk spesifik atau total penjualan.`;
+        replySpeech = `Siap Juragan ${currentUser.name}. Saya pantau penjualan dan inventori toko ${currentUser.storeName} berjalan dengan lancar. Ada data spesifik yang ingin dicek?`;
+        replyDisplay = `💡 Saya siap membantu memantau stok, mencatat omzet, atau merekomendasikan promo untuk toko Anda. Silakan tanyakan hal spesifik seperti "stok sambal sisa berapa?".`;
       }
 
       const fallbackMsg: VoiceConsultationMessage = {
@@ -541,37 +724,37 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const handleClose = () => {
     stopSpeaking();
     stopListening();
+    stopMicVisualization();
     onClose();
   };
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 overflow-y-auto">
-          {/* Backdrop: Clean light blur */}
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+          {/* Backdrop with soft blur */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
             onClick={handleClose}
-            className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm transition-opacity"
+            className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm"
           />
 
-          {/* Main Modal Container: 100% Crisp White Mode */}
+          {/* Modal Dialog (100% White Mode) */}
           <motion.div
-            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+            initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 12 }}
-            transition={{ duration: 0.22, ease: easeOutCurve }}
-            className="relative w-full max-w-2xl bg-white text-zinc-900 rounded-3xl shadow-2xl border border-zinc-200/90 overflow-hidden z-10 flex flex-col max-h-[90vh]"
+            exit={{ opacity: 0, scale: 0.96, y: 15 }}
+            transition={{ duration: 0.25, ease: easeOutCurve }}
+            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-zinc-200/90 overflow-hidden flex flex-col z-10"
           >
-            {/* Top Bar: Clean White with Subtle Border */}
+            {/* Top Bar (White Mode) */}
             <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between bg-white">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-500 via-emerald-500 to-amber-500 p-[1.5px] flex items-center justify-center shadow-xs">
                   <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-blue-600" />
+                    <Sparkles className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
                 <div>
@@ -581,7 +764,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     </h3>
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Live Data
+                      Bahasa Indonesia
                     </span>
                   </div>
                   <p className="text-[11px] text-zinc-500">
@@ -591,7 +774,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
               </div>
 
               {/* Controls */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50 border border-zinc-200 text-[11px] font-medium text-zinc-600">
+                  <Radio className="w-3 h-3 text-emerald-600" />
+                  <span className="truncate max-w-[120px]">{activeVoiceName}</span>
+                </div>
+
                 <button
                   onClick={() => setIsMuted(!isMuted)}
                   title={isMuted ? 'Nyalakan Suara AI' : 'Bisukan Suara AI'}
@@ -613,7 +801,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
               </div>
             </div>
 
-            {/* Middle Stage: Dynamic Visual Waveform & Google Voice Circular Orb */}
+            {/* Middle Stage: Dynamic Visual Waveform & Voice Circular Orb */}
             <div className="relative py-7 px-4 flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-50/90 via-white to-zinc-50/50 border-b border-zinc-100 shrink-0">
               {/* Fluid Visual Wave Canvas across the stage */}
               <div className="absolute inset-0 pointer-events-none opacity-90">
@@ -625,7 +813,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 />
               </div>
 
-              {/* Outer Pulsing Soft Aura Rings (White/Google theme) */}
+              {/* Outer Pulsing Soft Aura Rings */}
               <div
                 className="absolute w-52 h-52 rounded-full pointer-events-none transition-transform duration-100 ease-out"
                 style={{
@@ -650,7 +838,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 }}
               />
 
-              {/* The Core Google Voice Orb (Expands with voice cadence) */}
+              {/* Center Voice Orb */}
               <motion.div
                 animate={{
                   scale: voiceVolumeScale,
@@ -663,7 +851,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 onClick={toggleListening}
                 className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-full cursor-pointer select-none group flex items-center justify-center z-10"
               >
-                {/* Vibrant Google multi-gradient ring */}
+                {/* Multi-gradient ring */}
                 <div
                   className={`absolute inset-0 rounded-full transition-all duration-300 ${
                     isSpeaking
@@ -672,7 +860,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                       ? 'bg-gradient-to-tr from-emerald-500 via-teal-400 to-blue-500 shadow-[0_10px_35px_rgba(16,185,129,0.35)] animate-pulse'
                       : isLoading
                       ? 'bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500 shadow-[0_10px_30px_rgba(251,188,5,0.3)] animate-spin'
-                      : 'bg-gradient-to-tr from-blue-500 via-indigo-500 to-emerald-400 shadow-[0_8px_25px_rgba(66,133,244,0.22)] group-hover:shadow-[0_10px_35px_rgba(66,133,244,0.35)]'
+                      : 'bg-gradient-to-tr from-blue-500 via-emerald-500 to-teal-400 shadow-[0_8px_25px_rgba(16,185,129,0.25)] group-hover:shadow-[0_10px_35px_rgba(16,185,129,0.35)]'
                   }`}
                 />
 
@@ -711,23 +899,27 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                       ))}
                     </div>
                   ) : isListening ? (
-                    <div className="flex flex-col items-center justify-center">
-                      <Mic className="w-8 h-8 text-emerald-600 animate-pulse" />
+                    <div className="flex flex-col items-center justify-center text-emerald-600">
+                      <Mic className="w-8 h-8 animate-pulse" />
+                      <span className="text-[10px] font-bold mt-1 text-emerald-700">Mendengar...</span>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center group-hover:scale-110 transition-transform">
-                      <Mic className="w-7 h-7 text-blue-600" />
+                    <div className="flex flex-col items-center justify-center text-zinc-700 group-hover:text-emerald-600 transition-colors">
+                      <Mic className="w-8 h-8" />
+                      <span className="text-[10px] font-bold mt-1 text-zinc-500 group-hover:text-emerald-600">
+                        Bicara
+                      </span>
                     </div>
                   )}
                 </div>
               </motion.div>
 
-              {/* Status Badge: Crisp White Mode */}
-              <div className="mt-4 flex items-center gap-2 z-10">
+              {/* Status Indicator & Live Captions */}
+              <div className="mt-4 z-10 text-center">
                 {isSpeaking ? (
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-ping" />
-                    <span>AI sedang berbicara...</span>
+                    <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
+                    <span>AI sedang berbicara (Bahasa Indonesia)...</span>
                     <button
                       onClick={stopSpeaking}
                       className="ml-1 text-[11px] underline text-blue-800 hover:text-blue-900 font-bold"
@@ -736,9 +928,27 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     </button>
                   </div>
                 ) : isListening ? (
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                    <span>Mendengarkan suara Anda... (Bicara sekarang)</span>
+                  <div className="flex flex-col items-center gap-1.5">
+                    <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs">
+                      <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
+                      <span>Mikrofon Aktif — Silakan Bicara...</span>
+                    </div>
+
+                    {(interimTranscript || transcript) && (
+                      <button
+                        onClick={() => {
+                          const textToSend = (currentAccumulatedTextRef.current || interimTranscript).trim();
+                          if (textToSend) {
+                            stopListening();
+                            handleSendQuery(textToSend);
+                          }
+                        }}
+                        className="mt-1 text-[11px] font-bold text-emerald-700 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1 rounded-lg shadow-2xs transition-all active:scale-98 flex items-center gap-1"
+                      >
+                        <Send className="w-3 h-3" />
+                        <span>Kirim Pertanyaan Sekarang</span>
+                      </button>
+                    )}
                   </div>
                 ) : isLoading ? (
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold shadow-xs">
@@ -750,16 +960,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     onClick={startListening}
                     className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 hover:text-zinc-900 text-xs font-semibold shadow-xs transition-all active:scale-98"
                   >
-                    <Mic className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Ketuk bulatan untuk mulai bicara</span>
+                    <Mic className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Ketuk bulatan atau tombol mic untuk mulai bicara</span>
                   </button>
                 )}
               </div>
 
-              {/* Live interim speech preview */}
-              {interimTranscript && (
-                <div className="mt-2.5 px-4 py-1.5 rounded-xl bg-white/95 border border-zinc-200 text-xs text-zinc-700 italic max-w-md text-center shadow-xs z-10">
-                  "{interimTranscript}..."
+              {/* Live speech preview */}
+              {(interimTranscript || transcript) && isListening && (
+                <div className="mt-2.5 px-4 py-2 rounded-xl bg-white/95 border border-emerald-200 text-xs text-zinc-800 font-medium max-w-md text-center shadow-xs z-10">
+                  <span className="text-zinc-400 font-normal">Mendengar: </span>
+                  "{interimTranscript || transcript}"
                 </div>
               )}
             </div>
@@ -863,11 +1074,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             <div className="p-3.5 bg-white border-t border-zinc-200/80 flex items-center gap-2">
               <button
                 type="button"
+                id="btn-mic-toggle-bottom"
                 onClick={toggleListening}
-                className={`p-3 rounded-2xl flex items-center justify-center transition-all ${
+                className={`p-3 rounded-2xl transition-all duration-200 active:scale-95 flex items-center justify-center shrink-0 ${
                   isListening
-                    ? 'bg-rose-600 text-white animate-pulse shadow-md'
-                    : 'bg-gradient-to-r from-blue-600 to-emerald-600 text-white hover:opacity-95 shadow-xs'
+                    ? 'bg-rose-600 text-white shadow-md animate-pulse ring-4 ring-rose-100'
+                    : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                 }`}
                 title={isListening ? 'Hentikan Mendengarkan' : 'Bicara Sekarang'}
               >
@@ -887,8 +1099,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   onChange={(e) => setInputText(e.target.value)}
                   placeholder={
                     isListening
-                      ? 'Mendengarkan ucapan Anda...'
-                      : 'Ketik atau klik tombol mic untuk konsultasi suara...'
+                      ? 'Mendengarkan ucapan Anda... (Bicara langsung)'
+                      : 'Ketik atau klik tombol mic untuk bicara...'
                   }
                   className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-900 placeholder-zinc-400 focus:outline-hidden focus:bg-white focus:border-emerald-500 transition-colors"
                 />
@@ -896,7 +1108,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 <button
                   type="submit"
                   disabled={!inputText.trim() || isLoading}
-                  className="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white disabled:opacity-30 transition-colors"
+                  className="p-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-30 transition-colors shadow-xs"
                   title="Kirim Pesan"
                 >
                   <Send className="w-4 h-4" />

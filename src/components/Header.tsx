@@ -54,8 +54,8 @@ export const Header: React.FC<HeaderProps> = ({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         {/* Brand - Clean & Minimalist */}
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-zinc-950 flex items-center justify-center text-white shadow-xs">
-            <Sparkles className="w-4 h-4 text-emerald-400" />
+          <div className="w-9 h-9 rounded-xl bg-white border border-zinc-200/90 flex items-center justify-center shadow-xs">
+            <Sparkles className="w-4.5 h-4.5 text-emerald-600" />
           </div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-base text-zinc-900 tracking-tight">
