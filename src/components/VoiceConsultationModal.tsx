@@ -95,6 +95,47 @@ const findIndonesianVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoi
   return null;
 };
 
+// Helper to break down speech text into natural short clauses/sentences
+// Android Chrome and desktop TTS buffers freeze or stop after 4-6 seconds if an utterance is too long.
+// Sequential short chunks (2-4 seconds each) ensure continuous, uninterrupted reading until finished.
+const splitTextIntoSpeechChunks = (text: string): string[] => {
+  if (!text) return [];
+
+  // Match sentences ending in punctuation (. ! ? \n ;)
+  const rawParts = text.match(/[^.!?;\n]+[.!?;\n]*/g) || [text];
+  const chunks: string[] = [];
+
+  for (const raw of rawParts) {
+    const part = raw.trim();
+    if (!part) continue;
+
+    // If the sentence is reasonable length (<= 110 chars), keep it intact
+    if (part.length <= 110) {
+      chunks.push(part);
+    } else {
+      // Split by commas or phrases if too long
+      const subParts = part.split(/,\s*/);
+      let temp = '';
+      for (let i = 0; i < subParts.length; i++) {
+        const piece = subParts[i].trim();
+        if (!piece) continue;
+        const separator = i < subParts.length - 1 ? ', ' : '';
+        if ((temp + piece + separator).length > 110 && temp) {
+          chunks.push(temp.trim());
+          temp = piece + separator;
+        } else {
+          temp += piece + separator;
+        }
+      }
+      if (temp.trim()) {
+        chunks.push(temp.trim());
+      }
+    }
+  }
+
+  return chunks.filter((c) => c.length > 0);
+};
+
 // Dedicated Fluid Visual Waveform Animation (Canvas-based)
 const WaveformVisualizer: React.FC<{
   isSpeaking: boolean;
@@ -217,7 +258,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const speechSynthRef = useRef<SpeechSynthesis | null>(null);
   const activeVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const keepAliveTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const speechChunksQueueRef = useRef<string[]>([]);
+  const speechChunkIndexRef = useRef<number>(0);
+  const isSpeechCancelledRef = useRef<boolean>(false);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentLiveInputRef = useRef<string>('');
@@ -342,12 +385,11 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     };
   }, [isSpeaking, isListening]);
 
-  // Stop speaking and clear anti-pause keep-alive
+  // Stop speaking and cancel ongoing playback queue
   const stopSpeaking = () => {
-    if (keepAliveTimerRef.current) {
-      clearInterval(keepAliveTimerRef.current);
-      keepAliveTimerRef.current = null;
-    }
+    isSpeechCancelledRef.current = true;
+    speechChunksQueueRef.current = [];
+    speechChunkIndexRef.current = 0;
     activeUtteranceRef.current = null;
 
     if (speechSynthRef.current) {
@@ -367,101 +409,104 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   };
 
   // 3. Pure Indonesian Text-To-Speech (TTS)
-  // Guarantees stable Indonesian playback on PC & Mobile without getting paused mid-sentence by Chrome GC
+  // Plays speech in natural short sentence chunks to completely eliminate browser audio cutoffs (the 4-6s bug)
+  // and guarantee smooth, continuous, uninterrupted voice playback on Mobile & Desktop
   const speakText = async (text: string) => {
     if (isMuted) return;
 
     const spokenClean = formatForIndonesianSpeech(text);
     if (!spokenClean) return;
 
-    // Immediately stop any active speech or audio
+    // Immediately stop any prior speech or audio
     stopSpeaking();
 
-    // In desktop browsers, resume any paused synthesis context
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      try {
-        window.speechSynthesis.cancel();
-        window.speechSynthesis.resume();
-      } catch {}
+    const chunks = splitTextIntoSpeechChunks(spokenClean);
+    if (chunks.length === 0) return;
+
+    isSpeechCancelledRef.current = false;
+    speechChunksQueueRef.current = chunks;
+    speechChunkIndexRef.current = 0;
+
+    const synth = window.speechSynthesis;
+    if (!synth) return;
+
+    // Resume any suspended speech context
+    try {
+      synth.cancel();
+      synth.resume();
+    } catch {}
+
+    const allVoices = synth.getVoices();
+    const voice = activeVoiceRef.current || findIndonesianVoice(allVoices);
+    if (voice) {
+      activeVoiceRef.current = voice;
     }
 
-    try {
-      const synth = window.speechSynthesis;
-      if (synth) {
-        const utterance = new SpeechSynthesisUtterance(spokenClean);
-        // CRITICAL FIX: Keep active reference in ref to prevent Chrome garbage collection
-        // from pausing speech mid-sentence!
-        activeUtteranceRef.current = utterance;
-
-        const allVoices = synth.getVoices();
-        const voice = activeVoiceRef.current || findIndonesianVoice(allVoices);
-        if (voice) {
-          utterance.voice = voice;
-          activeVoiceRef.current = voice;
-        }
-
-        utterance.lang = 'id-ID';
-        utterance.rate = 1.0;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-          setVoiceVolumeScale(1.18);
-        };
-
-        utterance.onboundary = () => {
-          setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
-        };
-
-        utterance.onend = () => {
-          if (keepAliveTimerRef.current) {
-            clearInterval(keepAliveTimerRef.current);
-            keepAliveTimerRef.current = null;
-          }
-          activeUtteranceRef.current = null;
-          setIsSpeaking(false);
-          setVoiceVolumeScale(1.0);
-
-          // Once AI finishes speaking, seamlessly re-open the mic for user turn
-          setTimeout(() => {
-            if (isOpen) {
-              startListening();
-            }
-          }, 350);
-        };
-
-        utterance.onerror = (e) => {
-          console.warn('SpeechSynthesis error:', e);
-          if (keepAliveTimerRef.current) {
-            clearInterval(keepAliveTimerRef.current);
-            keepAliveTimerRef.current = null;
-          }
-          activeUtteranceRef.current = null;
-          setIsSpeaking(false);
-          setVoiceVolumeScale(1.0);
-
-          setTimeout(() => {
-            if (isOpen) {
-              startListening();
-            }
-          }, 350);
-        };
-
-        // Anti-pause keepalive: Chrome bug causes synthesis to freeze after ~15s
-        if (keepAliveTimerRef.current) clearInterval(keepAliveTimerRef.current);
-        keepAliveTimerRef.current = setInterval(() => {
-          if (window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
-            window.speechSynthesis.pause();
-            window.speechSynthesis.resume();
-          }
-        }, 5000);
-
-        synth.speak(utterance);
+    const playChunk = (index: number) => {
+      if (isSpeechCancelledRef.current || isMuted) {
         return;
       }
-    } catch (err) {
-      console.warn('SpeechSynthesis speak error:', err);
-    }
+
+      if (index >= speechChunksQueueRef.current.length) {
+        // All sentence chunks read successfully to completion!
+        activeUtteranceRef.current = null;
+        setIsSpeaking(false);
+        setVoiceVolumeScale(1.0);
+
+        // Once AI completely finishes speaking, seamlessly re-open mic for user
+        setTimeout(() => {
+          if (isOpen && !isSpeechCancelledRef.current) {
+            startListening();
+          }
+        }, 350);
+        return;
+      }
+
+      const chunkText = speechChunksQueueRef.current[index];
+      const utterance = new SpeechSynthesisUtterance(chunkText);
+      // Keep persistent reference in ref to protect from garbage collection
+      activeUtteranceRef.current = utterance;
+
+      if (activeVoiceRef.current) {
+        utterance.voice = activeVoiceRef.current;
+      }
+
+      utterance.lang = 'id-ID';
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+
+      utterance.onstart = () => {
+        if (!isSpeechCancelledRef.current) {
+          setIsSpeaking(true);
+          setVoiceVolumeScale(1.18);
+        }
+      };
+
+      utterance.onboundary = () => {
+        if (!isSpeechCancelledRef.current) {
+          setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
+        }
+      };
+
+      utterance.onend = () => {
+        if (isSpeechCancelledRef.current) return;
+        // Proceed to next sentence chunk smoothly
+        speechChunkIndexRef.current = index + 1;
+        playChunk(index + 1);
+      };
+
+      utterance.onerror = (e) => {
+        console.warn('Speech chunk error, advancing to next sentence:', e);
+        if (isSpeechCancelledRef.current) return;
+        // On any transient chunk error, don't freeze: advance to read the rest!
+        speechChunkIndexRef.current = index + 1;
+        playChunk(index + 1);
+      };
+
+      synth.speak(utterance);
+    };
+
+    playChunk(0);
   };
 
   // 4. Robust Speech-To-Text Recognition
@@ -1027,7 +1072,11 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 </div>
 
                 <button
-                  onClick={() => setIsMuted(!isMuted)}
+                  onClick={() => {
+                    const next = !isMuted;
+                    setIsMuted(next);
+                    if (next) stopSpeaking();
+                  }}
                   title={isMuted ? 'Nyalakan Suara AI' : 'Bisukan Suara AI'}
                   className={`p-2 rounded-xl border transition-all ${
                     isMuted
