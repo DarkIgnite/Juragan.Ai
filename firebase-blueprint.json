@@ -1,0 +1,74 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Indonesian MSME owner profile linked with Firebase Authentication",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Firebase Auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User Google or account email" },
+        "name": { "type": "string", "description": "Display name" },
+        "photoUrl": { "type": "string", "description": "Google avatar URL" },
+        "role": { "type": "string", "enum": ["juragan", "admin"], "description": "User access role" },
+        "storeName": { "type": "string", "description": "MSME store business name" },
+        "category": { "type": "string", "description": "Business sector category" },
+        "city": { "type": "string", "description": "City of operation in Indonesia" },
+        "whatsapp": { "type": "string", "description": "WhatsApp contact number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "name", "role", "storeName"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Store inventory product item",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "costPrice": { "type": "number" },
+        "sellingPrice": { "type": "number" },
+        "stock": { "type": "number" },
+        "minStockAlert": { "type": "number" },
+        "unit": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "userId", "name", "category", "costPrice", "sellingPrice", "stock", "minStockAlert", "unit"]
+    },
+    "SaleTransaction": {
+      "title": "SaleTransaction",
+      "description": "Sales receipt and revenue entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "quantity": { "type": "number" },
+        "totalPrice": { "type": "number" },
+        "profit": { "type": "number" },
+        "paymentMethod": { "type": "string", "enum": ["QRIS", "Tunai", "Transfer Bank", "Marketplace"] },
+        "customerName": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" }
+      },
+      "required": ["id", "userId", "productId", "productName", "quantity", "totalPrice", "profit", "paymentMethod", "customerName", "date"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profiles and business information"
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Inventory products catalog"
+    },
+    "/transactions/{transactionId}": {
+      "schema": "SaleTransaction",
+      "description": "Recorded sales transactions"
+    }
+  }
+}

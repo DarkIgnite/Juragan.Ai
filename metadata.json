@@ -1,0 +1,6 @@
+{
+  "name": "Juragan.AI",
+  "description": "AI Business Companion untuk UMKM Indonesia — Analisis penjualan, rekomendasi stok & promo, dan pembuat konten cerdas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
