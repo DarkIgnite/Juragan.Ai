@@ -94,3 +94,34 @@ export interface PlatformStats {
   activeModel: string;
   uptimeSeconds: number;
 }
+
+export interface VoiceConsultationMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  text: string;
+  speechText?: string;
+  timestamp: string;
+  referencedProducts?: Array<{
+    id: string;
+    name: string;
+    stock: number;
+    unit: string;
+    sellingPrice: number;
+    imageUrl?: string;
+  }>;
+}
+
+export interface VoiceConsultationResponse {
+  speechText: string;
+  displayText: string;
+  referencedProducts?: Array<{
+    id: string;
+    name: string;
+    stock: number;
+    unit: string;
+    sellingPrice: number;
+    imageUrl?: string;
+  }>;
+  suggestedFollowUps?: string[];
+}
+

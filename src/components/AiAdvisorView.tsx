@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   Cpu,
   Info,
+  Mic,
 } from 'lucide-react';
 import { formatRupiah } from '../utils/formatters';
 
@@ -22,6 +23,7 @@ interface AiAdvisorViewProps {
   onNavigateToContent: () => void;
   onOpenAddProduct: () => void;
   onOpenAddSale: () => void;
+  onOpenVoiceConsultation?: () => void;
 }
 
 export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
@@ -31,6 +33,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
   onNavigateToContent,
   onOpenAddProduct,
   onOpenAddSale,
+  onOpenVoiceConsultation,
 }) => {
   const [loading, setLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState<AdvisorAnalysisResponse | null>(null);
@@ -142,15 +145,29 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
           </p>
         </div>
 
-        <button
-          id="btn-run-ai-advisor"
-          onClick={runAdvisorAnalysis}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-sm shrink-0 disabled:opacity-50"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-          {loading ? 'Menganalisis Toko...' : 'Analisis Ulang Sekarang'}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenVoiceConsultation && (
+            <button
+              id="btn-open-voice-advisor"
+              onClick={onOpenVoiceConsultation}
+              className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-800 active:scale-[0.98] transition-all shadow-xs border border-zinc-200/90"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <Mic className="w-3.5 h-3.5 text-blue-600" />
+              <span>Konsultasi Suara AI</span>
+            </button>
+          )}
+
+          <button
+            id="btn-run-ai-advisor"
+            onClick={runAdvisorAnalysis}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 active:scale-[0.98] transition-all shadow-sm disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+            {loading ? 'Menganalisis Toko...' : 'Analisis Ulang Sekarang'}
+          </button>
+        </div>
       </div>
 
       {errorMsg && (

@@ -7,6 +7,7 @@ import { SetupApiModal } from './components/SetupApiModal';
 import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { ProductManagementModal } from './components/ProductManagementModal';
 import { SaleTransactionModal } from './components/SaleTransactionModal';
+import { VoiceConsultationModal } from './components/VoiceConsultationModal';
 import { JuraganDashboardView } from './components/JuraganDashboardView';
 import { AiAdvisorView } from './components/AiAdvisorView';
 import { AiContentGeneratorView } from './components/AiContentGeneratorView';
@@ -20,6 +21,7 @@ import {
   Package,
   ReceiptText,
   ShieldCheck,
+  Mic,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, testFirestoreConnection } from './lib/firebase';
@@ -70,6 +72,7 @@ export default function App() {
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
 
   // Sync to local storage
@@ -236,14 +239,15 @@ export default function App() {
         onOpenRoleSwitcher={() => setIsRoleModalOpen(true)}
         onOpenApiSetup={() => setIsApiModalOpen(true)}
         onOpenGoogleAuth={() => setIsGoogleModalOpen(true)}
+        onOpenVoiceConsultation={() => setIsVoiceModalOpen(true)}
         apiConnected={apiConnected}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         {/* Navigation Tabs (Apple-style segmented control) */}
-        <div className="flex items-center justify-between overflow-x-auto pb-1 border-b border-zinc-200/80">
-          <div className="flex items-center gap-1.5 p-1 bg-zinc-200/70 rounded-2xl">
+        <div className="flex items-center justify-between overflow-x-auto pb-1 border-b border-zinc-200/80 gap-3">
+          <div className="flex items-center gap-1.5 p-1 bg-zinc-200/70 rounded-2xl shrink-0">
             {isAdmin ? (
               <>
                 <button
@@ -362,6 +366,19 @@ export default function App() {
               </>
             )}
           </div>
+
+          {/* Quick Voice Consultation Trigger in Tab Bar */}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              id="btn-voice-consultation-tab"
+              onClick={() => setIsVoiceModalOpen(true)}
+              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-800 shadow-xs border border-zinc-200 active:scale-[0.98] transition-all"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <Mic className="w-3.5 h-3.5 text-blue-600" />
+              <span>Konsultasi Suara</span>
+            </button>
+          </div>
         </div>
 
         {/* Dynamic Views Content */}
@@ -405,6 +422,7 @@ export default function App() {
                 onNavigateToContent={() => setActiveTab('content')}
                 onOpenAddProduct={() => setIsProductModalOpen(true)}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
+                onOpenVoiceConsultation={() => setIsVoiceModalOpen(true)}
               />
             )}
 
@@ -477,6 +495,39 @@ export default function App() {
         products={userProducts}
         onSaveTransaction={handleSaveTransaction}
       />
+
+      <VoiceConsultationModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        currentUser={currentUser}
+        products={userProducts}
+        transactions={userTransactions}
+      />
+
+      {/* Floating Voice Assistant Trigger (White Mode) */}
+      <div className="fixed bottom-5 right-5 z-40">
+        <button
+          id="btn-floating-voice-ai"
+          onClick={() => setIsVoiceModalOpen(true)}
+          className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 backdrop-blur-md text-zinc-900 shadow-lg hover:shadow-xl border border-zinc-200/90 hover:border-zinc-300 group transition-all duration-200 active:scale-[0.97]"
+        >
+          <div className="relative flex items-center justify-center">
+            <span className="absolute w-4 h-4 rounded-full bg-blue-400/30 animate-ping" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-500 to-emerald-500 flex items-center justify-center shadow-xs">
+              <Mic className="w-4 h-4 text-white" />
+            </div>
+          </div>
+          <div className="text-left pr-1">
+            <div className="text-xs font-bold flex items-center gap-1.5 text-zinc-900">
+              <span>Tanya Juragan AI</span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            </div>
+            <div className="text-[10px] text-zinc-500 font-medium">
+              Konsultasi &amp; Cek Stok Suara
+            </div>
+          </div>
+        </button>
+      </div>
 
       {/* Footer */}
       <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-500">

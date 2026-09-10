@@ -10,6 +10,7 @@ import {
   LogOut,
   ExternalLink,
   CheckCircle2,
+  Mic,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -18,6 +19,7 @@ interface HeaderProps {
   onOpenRoleSwitcher: () => void;
   onOpenApiSetup: () => void;
   onOpenGoogleAuth: () => void;
+  onOpenVoiceConsultation?: () => void;
   apiConnected: boolean;
 }
 
@@ -26,6 +28,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenRoleSwitcher,
   onOpenApiSetup,
   onOpenGoogleAuth,
+  onOpenVoiceConsultation,
   apiConnected,
 }) => {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -64,13 +67,27 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Section: Minimal Profile Control */}
-        <div className="relative" ref={menuRef}>
-          <button
-            id="btn-profile-dropdown"
-            onClick={() => setIsProfileMenuOpen((prev) => !prev)}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-zinc-200/80 hover:border-zinc-300 bg-zinc-50/60 hover:bg-zinc-100/80 transition-all tactile-btn"
-          >
+        {/* Right Section: Voice Consultation & Profile Control */}
+        <div className="flex items-center gap-2">
+          {onOpenVoiceConsultation && (
+            <button
+              id="btn-header-voice-consultation"
+              onClick={onOpenVoiceConsultation}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-zinc-50 text-zinc-800 text-xs font-semibold shadow-xs hover:shadow-sm transition-all border border-zinc-200/90 active:scale-[0.98]"
+            >
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              <Mic className="w-3.5 h-3.5 text-blue-600" />
+              <span className="hidden sm:inline">Konsultasi Suara</span>
+              <span className="sm:hidden">Voice AI</span>
+            </button>
+          )}
+
+          <div className="relative" ref={menuRef}>
+            <button
+              id="btn-profile-dropdown"
+              onClick={() => setIsProfileMenuOpen((prev) => !prev)}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl border border-zinc-200/80 hover:border-zinc-300 bg-zinc-50/60 hover:bg-zinc-100/80 transition-all tactile-btn"
+            >
             {/* User Avatar */}
             {currentUser.photoUrl ? (
               <img
@@ -227,6 +244,7 @@ export const Header: React.FC<HeaderProps> = ({
           </AnimatePresence>
         </div>
       </div>
-    </header>
-  );
+    </div>
+  </header>
+);
 };
