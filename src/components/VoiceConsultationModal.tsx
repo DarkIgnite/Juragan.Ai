@@ -100,8 +100,7 @@ const WaveformVisualizer: React.FC<{
   isSpeaking: boolean;
   isListening: boolean;
   volumeScale: number;
-  analyserNode: AnalyserNode | null;
-}> = ({ isSpeaking, isListening, volumeScale, analyserNode }) => {
+}> = ({ isSpeaking, isListening, volumeScale }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
@@ -112,7 +111,6 @@ const WaveformVisualizer: React.FC<{
 
     let animId: number;
     let phase = 0;
-    const dataArray = analyserNode ? new Uint8Array(analyserNode.frequencyBinCount) : null;
 
     const render = () => {
       const width = canvas.clientWidth;
@@ -134,18 +132,11 @@ const WaveformVisualizer: React.FC<{
       ctx.clearRect(0, 0, width, height);
 
       let currentAmp = 10;
-      if (isListening && analyserNode && dataArray) {
-        analyserNode.getByteFrequencyData(dataArray);
-        let sum = 0;
-        const binCount = Math.min(32, dataArray.length);
-        for (let i = 0; i < binCount; i++) sum += dataArray[i];
-        const avg = sum / binCount;
-        currentAmp = 14 + (avg / 255) * 60;
-      } else if (isSpeaking) {
-        currentAmp = 18 + (volumeScale - 1.0) * 110;
+      if (isSpeaking) {
+        currentAmp = 20 + Math.max(0, volumeScale - 1.0) * 110;
       } else if (isListening) {
-        // Active dynamic listening wave even if mic stream hasn't piped to analyser yet
-        currentAmp = 18 + Math.sin(phase * 2.8) * 8;
+        // Active dynamic listening wave pulsating with volumeScale and speech phase
+        currentAmp = 16 + Math.max(0, volumeScale - 1.0) * 60 + Math.sin(phase * 2.8) * 7;
       } else {
         currentAmp = 8 + Math.sin(phase * 1.2) * 3;
       }
@@ -189,7 +180,7 @@ const WaveformVisualizer: React.FC<{
     return () => {
       cancelAnimationFrame(animId);
     };
-  }, [isSpeaking, isListening, volumeScale, analyserNode]);
+  }, [isSpeaking, isListening, volumeScale]);
 
   return <canvas ref={canvasRef} className="w-full h-full block" />;
 };
@@ -210,8 +201,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [messages, setMessages] = useState<VoiceConsultationMessage[]>([]);
   const [voiceVolumeScale, setVoiceVolumeScale] = useState(1.0);
-  const [analyserInstance, setAnalyserInstance] = useState<AnalyserNode | null>(null);
   const [activeVoiceName, setActiveVoiceName] = useState<string>('Bahasa Indonesia');
+  const [micPermissionDenied, setMicPermissionDenied] = useState<boolean>(false);
+  const [isSTTSupported, setIsSTTSupported] = useState<boolean>(true);
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([
     'Stok Sambal Bawang sisa berapa?',
     'Produk apa yang stoknya menipis?',
@@ -224,16 +216,22 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const recognitionRef = useRef<any>(null);
   const speechSynthRef = useRef<SpeechSynthesis | null>(null);
   const activeVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const analyserRef = useRef<AnalyserNode | null>(null);
-  const micStreamRef = useRef<MediaStream | null>(null);
-  const animationFrameRef = useRef<number | null>(null);
+  const activeUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const keepAliveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const currentAccumulatedTextRef = useRef<string>('');
   const currentLiveInputRef = useRef<string>('');
+  const inputRef = useRef<HTMLInputElement | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
-  const audioAnimationTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const handleSendQueryRef = useRef<(text: string) => void>(() => {});
+
+  // Check STT browser support
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const hasSTT = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      setIsSTTSupported(hasSTT);
+    }
+  }, []);
 
   // 1. Initialize Voices & Listen to dynamic voice list updates
   useEffect(() => {
@@ -254,7 +252,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         );
       } else {
         activeVoiceRef.current = null;
-        setActiveVoiceName('Gemini AI Indonesia (HD)');
+        setActiveVoiceName('Bahasa Indonesia');
       }
     };
 
@@ -275,25 +273,34 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     return () => {
       stopSpeaking();
       stopListening();
-      stopMicVisualization();
     };
   }, []);
 
   // Initial welcome message with pure Indonesian pronunciation
   useEffect(() => {
-    if (isOpen && messages.length === 0) {
-      const greeting: VoiceConsultationMessage = {
-        id: 'greet-1',
-        role: 'assistant',
-        text: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan.AI untuk toko ${currentUser.storeName}.\nSilakan tanyakan sisa stok produk, omzet penjualan, atau konsultasi bisnis Anda.`,
-        speechText: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan A I untuk toko ${currentUser.storeName}. Silakan tanyakan sisa stok produk atau omzet penjualan toko Anda.`,
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        referencedProducts: products.filter((p) => p.stock <= (p.minStockAlert || 5)).slice(0, 2),
-      };
-      setMessages([greeting]);
-      setTimeout(() => {
-        speakText(greeting.speechText || greeting.text);
-      }, 600);
+    if (isOpen) {
+      if (messages.length === 0) {
+        const greeting: VoiceConsultationMessage = {
+          id: 'greet-1',
+          role: 'assistant',
+          text: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan.AI untuk toko ${currentUser.storeName}.\nSilakan tanyakan sisa stok produk, omzet penjualan, atau konsultasi bisnis Anda.`,
+          speechText: `Halo Juragan ${currentUser.name}! Saya asisten suara Juragan A I untuk toko ${currentUser.storeName}. Silakan tanyakan sisa stok produk atau omzet penjualan toko Anda.`,
+          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+          referencedProducts: products.filter((p) => p.stock <= (p.minStockAlert || 5)).slice(0, 2),
+        };
+        setMessages([greeting]);
+        setTimeout(() => {
+          speakText(greeting.speechText || greeting.text);
+        }, 500);
+      } else {
+        // When reopening modal, immediately activate listening so user can speak right away
+        setTimeout(() => {
+          startListening();
+        }, 300);
+      }
+    } else {
+      stopSpeaking();
+      stopListening();
     }
   }, [isOpen]);
 
@@ -335,67 +342,130 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     };
   }, [isSpeaking, isListening]);
 
-  // Safe Web Audio Analyser for User Voice input
-  const startMicVisualization = async () => {
+  // Stop speaking and clear anti-pause keep-alive
+  const stopSpeaking = () => {
+    if (keepAliveTimerRef.current) {
+      clearInterval(keepAliveTimerRef.current);
+      keepAliveTimerRef.current = null;
+    }
+    activeUtteranceRef.current = null;
+
+    if (speechSynthRef.current) {
+      try {
+        speechSynthRef.current.cancel();
+      } catch {}
+    }
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+      } catch {}
+      audioPlayerRef.current = null;
+    }
+    setIsSpeaking(false);
+    setVoiceVolumeScale(1.0);
+  };
+
+  // 3. Pure Indonesian Text-To-Speech (TTS)
+  // Guarantees stable Indonesian playback on PC & Mobile without getting paused mid-sentence by Chrome GC
+  const speakText = async (text: string) => {
+    if (isMuted) return;
+
+    const spokenClean = formatForIndonesianSpeech(text);
+    if (!spokenClean) return;
+
+    // Immediately stop any active speech or audio
+    stopSpeaking();
+
+    // In desktop browsers, resume any paused synthesis context
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+      } catch {}
+    }
+
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+      const synth = window.speechSynthesis;
+      if (synth) {
+        const utterance = new SpeechSynthesisUtterance(spokenClean);
+        // CRITICAL FIX: Keep active reference in ref to prevent Chrome garbage collection
+        // from pausing speech mid-sentence!
+        activeUtteranceRef.current = utterance;
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      micStreamRef.current = stream;
-
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      if (!AudioCtx) return;
-
-      const audioCtx = new AudioCtx();
-      audioContextRef.current = audioCtx;
-
-      const analyser = audioCtx.createAnalyser();
-      analyser.fftSize = 256;
-      analyserRef.current = analyser;
-      setAnalyserInstance(analyser);
-
-      const source = audioCtx.createMediaStreamSource(stream);
-      source.connect(analyser);
-
-      const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-      const updateMicVolume = () => {
-        if (!analyserRef.current) return;
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < dataArray.length; i++) {
-          sum += dataArray[i];
+        const allVoices = synth.getVoices();
+        const voice = activeVoiceRef.current || findIndonesianVoice(allVoices);
+        if (voice) {
+          utterance.voice = voice;
+          activeVoiceRef.current = voice;
         }
-        const average = sum / dataArray.length;
-        const micScale = 1.0 + Math.min(average / 80, 0.45);
-        setVoiceVolumeScale(micScale);
 
-        animationFrameRef.current = requestAnimationFrame(updateMicVolume);
-      };
+        utterance.lang = 'id-ID';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
 
-      updateMicVolume();
-    } catch {
-      // If getUserMedia fails or is delayed, speech recognition continues safely!
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+          setVoiceVolumeScale(1.18);
+        };
+
+        utterance.onboundary = () => {
+          setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
+        };
+
+        utterance.onend = () => {
+          if (keepAliveTimerRef.current) {
+            clearInterval(keepAliveTimerRef.current);
+            keepAliveTimerRef.current = null;
+          }
+          activeUtteranceRef.current = null;
+          setIsSpeaking(false);
+          setVoiceVolumeScale(1.0);
+
+          // Once AI finishes speaking, seamlessly re-open the mic for user turn
+          setTimeout(() => {
+            if (isOpen) {
+              startListening();
+            }
+          }, 350);
+        };
+
+        utterance.onerror = (e) => {
+          console.warn('SpeechSynthesis error:', e);
+          if (keepAliveTimerRef.current) {
+            clearInterval(keepAliveTimerRef.current);
+            keepAliveTimerRef.current = null;
+          }
+          activeUtteranceRef.current = null;
+          setIsSpeaking(false);
+          setVoiceVolumeScale(1.0);
+
+          setTimeout(() => {
+            if (isOpen) {
+              startListening();
+            }
+          }, 350);
+        };
+
+        // Anti-pause keepalive: Chrome bug causes synthesis to freeze after ~15s
+        if (keepAliveTimerRef.current) clearInterval(keepAliveTimerRef.current);
+        keepAliveTimerRef.current = setInterval(() => {
+          if (window.speechSynthesis && window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+            window.speechSynthesis.pause();
+            window.speechSynthesis.resume();
+          }
+        }, 5000);
+
+        synth.speak(utterance);
+        return;
+      }
+    } catch (err) {
+      console.warn('SpeechSynthesis speak error:', err);
     }
   };
 
-  const stopMicVisualization = () => {
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
-      animationFrameRef.current = null;
-    }
-    if (micStreamRef.current) {
-      micStreamRef.current.getTracks().forEach((t) => t.stop());
-      micStreamRef.current = null;
-    }
-    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-      audioContextRef.current.close().catch(() => {});
-      audioContextRef.current = null;
-    }
-    setAnalyserInstance(null);
-  };
-
-  // 3. Robust Speech-To-Text Recognition (Fixed split-second disconnect bug)
+  // 4. Robust Speech-To-Text Recognition
+  // Accurately transcribes live words directly into the text input without hardware locking
   const createSpeechRecognitionInstance = useCallback(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -404,70 +474,64 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
     try {
       const recognition = new SpeechRecognition();
-      // Force Indonesian language model
       recognition.lang = 'id-ID';
-      // Crucial: continuous = true keeps the session alive so it doesn't shut down in a fraction of a second!
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
         setIsListening(true);
+        setMicPermissionDenied(false);
         setInterimTranscript('');
       };
 
       recognition.onresult = (event: any) => {
-        let currentInterim = '';
-        let finalTrans = '';
+        let finalStr = '';
+        let interimStr = '';
 
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const item = event.results[i];
-          if (item.isFinal) {
-            finalTrans += item[0].transcript;
+        for (let i = 0; i < event.results.length; ++i) {
+          const piece = event.results[i][0]?.transcript || '';
+          if (event.results[i].isFinal) {
+            finalStr += piece;
           } else {
-            currentInterim += item[0].transcript;
+            interimStr += piece;
           }
         }
 
-        if (finalTrans) {
-          currentAccumulatedTextRef.current = (
-            currentAccumulatedTextRef.current ? currentAccumulatedTextRef.current + ' ' : ''
-          ) + finalTrans.trim();
-        }
-
-        // Live text combining confirmed sentences with current words in progress
-        const liveSpokenWords = (
-          currentAccumulatedTextRef.current +
-          (currentInterim ? (currentAccumulatedTextRef.current ? ' ' : '') + currentInterim.trim() : '')
-        ).trim();
+        const liveSpokenWords = (finalStr + ' ' + interimStr).trim();
 
         if (liveSpokenWords) {
-          // Immediately update input field so user sees words detected live word by word!
+          // AUTOMATICALLY & INSTANTLY reflect spoken words in the text input!
           setInputText(liveSpokenWords);
           currentLiveInputRef.current = liveSpokenWords;
           setTranscript(liveSpokenWords);
-          setInterimTranscript(currentInterim);
+          setInterimTranscript(interimStr);
+          setVoiceVolumeScale(1.15 + Math.min(liveSpokenWords.length * 0.01, 0.35));
+
+          // Keep text input scrolled to latest word
+          if (inputRef.current) {
+            inputRef.current.scrollLeft = inputRef.current.scrollWidth;
+          }
 
           // Reset silence timer whenever words are actively being spoken
           if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Automatically send query 850ms after speech pauses / no more sound
+          // Automatically send query 2200ms after speech pauses
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
-              if (textToSend) {
+              if (textToSend && textToSend.length > 2) {
                 stopListening();
-                handleSendQuery(textToSend);
+                handleSendQueryRef.current(textToSend);
               }
             }
-          }, 850);
+          }, 2200);
         }
       };
 
       recognition.onspeechend = () => {
-        // Natural speech pause detected by speech recognition engine
         const textToSend = currentLiveInputRef.current.trim();
         if (textToSend && isListeningDesiredRef.current) {
           if (silenceTimerRef.current) {
@@ -476,18 +540,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const toSend = currentLiveInputRef.current.trim();
-              if (toSend) {
+              if (toSend && toSend.length > 2) {
                 stopListening();
-                handleSendQuery(toSend);
+                handleSendQueryRef.current(toSend);
               }
             }
-          }, 700);
+          }, 2000);
         }
       };
 
       recognition.onerror = (event: any) => {
         console.warn('Speech recognition status:', event.error);
-        // Do NOT stop on 'no-speech' or 'aborted' - give the user plenty of time to talk!
         if (event.error === 'no-speech' || event.error === 'aborted') {
           return;
         }
@@ -495,28 +558,27 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           isListeningDesiredRef.current = false;
           setIsListening(false);
-          stopMicVisualization();
+          setMicPermissionDenied(true);
         }
       };
 
       recognition.onend = () => {
-        // If the user hasn't explicitly tapped stop or submitted, automatically restart recognition!
-        // This eliminates the bug where the browser engine cuts off listening after 500ms!
+        // If listening is still desired, restart smoothly
         if (isListeningDesiredRef.current) {
-          try {
-            recognition.start();
-          } catch {
-            setTimeout(() => {
-              if (isListeningDesiredRef.current) {
+          setTimeout(() => {
+            if (isListeningDesiredRef.current) {
+              try {
+                recognition.start();
+              } catch {
                 try {
-                  recognition.start();
+                  recognitionRef.current = createSpeechRecognitionInstance();
+                  recognitionRef.current?.start();
                 } catch {}
               }
-            }, 250);
-          }
+            }
+          }, 100);
         } else {
           setIsListening(false);
-          stopMicVisualization();
         }
       };
 
@@ -534,10 +596,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     setTranscript('');
     setInterimTranscript('');
     setInputText('');
-    currentAccumulatedTextRef.current = '';
     currentLiveInputRef.current = '';
     isListeningDesiredRef.current = true;
     setIsListening(true);
+    setMicPermissionDenied(false);
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
@@ -553,7 +615,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         try {
           recognitionRef.current.start();
         } catch {
-          // If already started or stale, recreate instance cleanly
+          // Re-instantiate if instance was expired
           recognitionRef.current = createSpeechRecognitionInstance();
           recognitionRef.current?.start();
         }
@@ -562,8 +624,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       console.warn('Recognition start exception:', err);
     }
 
-    // Start wave visualizer safely without blocking STT
-    startMicVisualization();
+    // Auto-focus input so user sees cursor ready
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 150);
   };
 
   const stopListening = () => {
@@ -580,8 +644,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         recognitionRef.current.stop();
       } catch {}
     }
-
-    stopMicVisualization();
   };
 
   const toggleListening = () => {
@@ -590,149 +652,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
 
     if (isListening) {
-      // If user taps while listening and text was detected, automatically send it!
       const pendingText = (currentLiveInputRef.current || inputText).trim();
       stopListening();
       if (pendingText) {
-        handleSendQuery(pendingText);
+        handleSendQueryRef.current(pendingText);
       }
     } else {
       startListening();
     }
-  };
-
-  // 4. Pure Indonesian Text-To-Speech (TTS)
-  // Guarantees 100% Indonesian voice on all devices (PC & Mobile), never speaking English
-  const speakText = async (text: string) => {
-    if (isMuted) return;
-
-    const spokenClean = formatForIndonesianSpeech(text);
-    if (!spokenClean) return;
-
-    // Immediately stop any active speech or audio
-    stopSpeaking();
-
-    // Check if browser has a verified Indonesian voice
-    let voice = activeVoiceRef.current;
-    if (!voice && speechSynthRef.current) {
-      const voices = speechSynthRef.current.getVoices();
-      voice = findIndonesianVoice(voices);
-      if (voice) {
-        activeVoiceRef.current = voice;
-      }
-    }
-
-    // PATH A: If the browser HAS a verified Indonesian voice (e.g. mobile Android/iOS, or PC with Indonesian installed)
-    if (voice && speechSynthRef.current) {
-      try {
-        const utterance = new SpeechSynthesisUtterance(spokenClean);
-        utterance.voice = voice;
-        utterance.lang = 'id-ID';
-        utterance.rate = 0.98;
-        utterance.pitch = 1.0;
-
-        utterance.onstart = () => {
-          setIsSpeaking(true);
-        };
-
-        utterance.onboundary = () => {
-          setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
-        };
-
-        utterance.onend = () => {
-          setIsSpeaking(false);
-          setVoiceVolumeScale(1.0);
-        };
-
-        utterance.onerror = () => {
-          setIsSpeaking(false);
-          setVoiceVolumeScale(1.0);
-        };
-
-        speechSynthRef.current.speak(utterance);
-        return;
-      } catch (err) {
-        console.warn('Browser SpeechSynthesis error, falling back to Gemini Indonesian TTS:', err);
-      }
-    }
-
-    // PATH B: GUARANTEED INDONESIAN AI VOICE FOR PC BROWSERS (gemini-3.1-flash-tts-preview)
-    // Prevents PC browsers with English OS from ever falling back to English voices like Microsoft David/Zira
-    try {
-      setIsSpeaking(true);
-      setVoiceVolumeScale(1.12);
-
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: spokenClean, voiceName: 'Kore' }),
-      });
-
-      const json = await res.json();
-      if (!json.success || !json.audioUrl) {
-        throw new Error(json.error || 'Gagal memuat audio TTS');
-      }
-
-      const audio = new Audio(json.audioUrl);
-      audioPlayerRef.current = audio;
-
-      // Animate waveform during speech playback
-      if (audioAnimationTimerRef.current) {
-        clearInterval(audioAnimationTimerRef.current);
-      }
-      audioAnimationTimerRef.current = setInterval(() => {
-        setVoiceVolumeScale(1.06 + Math.random() * 0.32);
-      }, 120);
-
-      audio.onended = () => {
-        setIsSpeaking(false);
-        setVoiceVolumeScale(1.0);
-        if (audioAnimationTimerRef.current) {
-          clearInterval(audioAnimationTimerRef.current);
-          audioAnimationTimerRef.current = null;
-        }
-      };
-
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setVoiceVolumeScale(1.0);
-        if (audioAnimationTimerRef.current) {
-          clearInterval(audioAnimationTimerRef.current);
-          audioAnimationTimerRef.current = null;
-        }
-      };
-
-      await audio.play();
-    } catch (err) {
-      console.error('Error playing Indonesian TTS audio:', err);
-      setIsSpeaking(false);
-      setVoiceVolumeScale(1.0);
-      if (audioAnimationTimerRef.current) {
-        clearInterval(audioAnimationTimerRef.current);
-        audioAnimationTimerRef.current = null;
-      }
-    }
-  };
-
-  const stopSpeaking = () => {
-    if (speechSynthRef.current) {
-      try {
-        speechSynthRef.current.cancel();
-      } catch {}
-    }
-    if (audioPlayerRef.current) {
-      try {
-        audioPlayerRef.current.pause();
-        audioPlayerRef.current.currentTime = 0;
-      } catch {}
-      audioPlayerRef.current = null;
-    }
-    if (audioAnimationTimerRef.current) {
-      clearInterval(audioAnimationTimerRef.current);
-      audioAnimationTimerRef.current = null;
-    }
-    setIsSpeaking(false);
-    setVoiceVolumeScale(1.0);
   };
 
   const handleSendQuery = async (queryText: string) => {
@@ -743,7 +670,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     setInputText('');
     setTranscript('');
     setInterimTranscript('');
-    currentAccumulatedTextRef.current = '';
+    currentLiveInputRef.current = '';
 
     const userMsg: VoiceConsultationMessage = {
       id: 'msg-' + Date.now(),
@@ -953,9 +880,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const handleClose = () => {
     stopSpeaking();
     stopListening();
-    stopMicVisualization();
     onClose();
   };
+
+  handleSendQueryRef.current = handleSendQuery;
 
   return (
     <AnimatePresence>
@@ -1038,7 +966,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   isSpeaking={isSpeaking}
                   isListening={isListening}
                   volumeScale={voiceVolumeScale}
-                  analyserNode={analyserInstance}
                 />
               </div>
 
@@ -1145,7 +1072,20 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
               {/* Status Indicator & Live Captions */}
               <div className="mt-4 z-10 text-center">
-                {isSpeaking ? (
+                {micPermissionDenied ? (
+                  <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs">
+                    <span className="flex items-center gap-1.5 text-amber-800 font-bold">
+                      <span>⚠️ Akses mikrofon diblokir oleh browser</span>
+                    </span>
+                    <span className="text-[11px] text-amber-700 font-normal">
+                      Klik ikon gembok / izin mikrofon di bilah alamat browser untuk mengaktifkan suara.
+                    </span>
+                  </div>
+                ) : !isSTTSupported ? (
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium shadow-xs">
+                    <span>Browser Anda belum mendukung input suara otomatis. Gunakan kolom teks di bawah.</span>
+                  </div>
+                ) : isSpeaking ? (
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                     <span>AI sedang berbicara (Bahasa Indonesia)...</span>
@@ -1341,6 +1281,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
               >
                 <div className="relative flex-1 flex items-center">
                   <input
+                    ref={inputRef}
+                    id="input-voice-query"
                     type="text"
                     value={inputText}
                     onChange={(e) => {
@@ -1349,19 +1291,21 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     }}
                     placeholder={
                       isListening
-                        ? 'Mendengarkan ucapan Anda kata per kata...'
+                        ? 'Mendengarkan ucapan Anda... Kata otomatis masuk ke sini'
                         : 'Ketik atau klik tombol mic untuk bicara...'
                     }
                     className={`w-full px-4 py-2.5 rounded-xl text-xs text-zinc-900 placeholder-zinc-400 focus:outline-hidden transition-all ${
                       isListening
-                        ? 'bg-white border-2 border-emerald-500 shadow-xs ring-3 ring-emerald-50 pr-20 font-medium'
+                        ? 'bg-white border-2 border-emerald-500 shadow-xs ring-3 ring-emerald-50 pr-24 font-medium'
                         : 'bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-emerald-500'
                     }`}
                   />
                   {isListening && (
-                    <div className="absolute right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-50 border border-emerald-200 pointer-events-none">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
-                      <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Live</span>
+                    <div className="absolute right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100/90 border border-emerald-300 pointer-events-none shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
+                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                        {inputText ? 'Transkrip Otomatis' : 'Mendengar'}
+                      </span>
                     </div>
                   )}
                 </div>

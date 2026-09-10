@@ -73,6 +73,16 @@ export default function App() {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+
+  const handleOpenVoiceConsultation = () => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+        window.speechSynthesis.resume();
+      } catch {}
+    }
+    setIsVoiceModalOpen(true);
+  };
   const [apiConnected, setApiConnected] = useState(false);
 
   // Sync to local storage
@@ -239,7 +249,7 @@ export default function App() {
         onOpenRoleSwitcher={() => setIsRoleModalOpen(true)}
         onOpenApiSetup={() => setIsApiModalOpen(true)}
         onOpenGoogleAuth={() => setIsGoogleModalOpen(true)}
-        onOpenVoiceConsultation={() => setIsVoiceModalOpen(true)}
+        onOpenVoiceConsultation={handleOpenVoiceConsultation}
         apiConnected={apiConnected}
       />
 
@@ -371,7 +381,7 @@ export default function App() {
           <div className="flex items-center gap-2 shrink-0">
             <button
               id="btn-voice-consultation-tab"
-              onClick={() => setIsVoiceModalOpen(true)}
+              onClick={handleOpenVoiceConsultation}
               className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-800 shadow-xs border border-zinc-200 active:scale-[0.98] transition-all"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -422,7 +432,7 @@ export default function App() {
                 onNavigateToContent={() => setActiveTab('content')}
                 onOpenAddProduct={() => setIsProductModalOpen(true)}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
-                onOpenVoiceConsultation={() => setIsVoiceModalOpen(true)}
+                onOpenVoiceConsultation={handleOpenVoiceConsultation}
               />
             )}
 
@@ -508,7 +518,7 @@ export default function App() {
       <div className="fixed bottom-5 right-5 z-40">
         <button
           id="btn-floating-voice-ai"
-          onClick={() => setIsVoiceModalOpen(true)}
+          onClick={handleOpenVoiceConsultation}
           className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 backdrop-blur-md text-zinc-900 shadow-lg hover:shadow-xl border border-zinc-200/90 hover:border-zinc-300 group transition-all duration-200 active:scale-[0.97]"
         >
           <div className="relative flex items-center justify-center">
