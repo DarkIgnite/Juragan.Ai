@@ -64,14 +64,22 @@ const formatForIndonesianSpeech = (text: string): string => {
 const findIndonesianVoice = (voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null => {
   if (!voices || voices.length === 0) return null;
 
-  const idVoices = voices.filter(
-    (v) =>
-      v.lang === 'id-ID' ||
-      v.lang === 'id_ID' ||
-      v.lang.toLowerCase().startsWith('id') ||
-      v.name.toLowerCase().includes('indonesia') ||
-      v.name.toLowerCase().includes('bahasa')
-  );
+  const idVoices = voices.filter((v) => {
+    const lang = (v.lang || '').toLowerCase().replace(/_/g, '-');
+    const name = (v.name || '').toLowerCase();
+
+    return (
+      lang === 'id-id' ||
+      lang.startsWith('id') ||
+      lang === 'in-id' ||
+      lang.startsWith('in') ||
+      name.includes('indonesia') ||
+      name.includes('bahasa') ||
+      name.includes('gadis') ||
+      name.includes('ardi') ||
+      name.includes('id-id')
+    );
+  });
 
   if (idVoices.length > 0) {
     // Prioritize natural Indonesian voices (Google Bahasa Indonesia, Microsoft Gadis/Ardi, Natural)
@@ -224,6 +232,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentAccumulatedTextRef = useRef<string>('');
   const currentLiveInputRef = useRef<string>('');
+  const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
+  const audioAnimationTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 1. Initialize Voices & Listen to dynamic voice list updates
   useEffect(() => {
@@ -239,9 +249,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       const indonesianVoice = findIndonesianVoice(allVoices);
       if (indonesianVoice) {
         activeVoiceRef.current = indonesianVoice;
-        setActiveVoiceName(indonesianVoice.name.replace(/(Google|Microsoft|Natural|Online)\s*/gi, '').trim() || 'Bahasa Indonesia');
+        setActiveVoiceName(
+          indonesianVoice.name.replace(/(Google|Microsoft|Natural|Online)\s*/gi, '').trim() || 'Bahasa Indonesia'
+        );
       } else {
-        setActiveVoiceName('Bahasa Indonesia (id-ID)');
+        activeVoiceRef.current = null;
+        setActiveVoiceName('Gemini AI Indonesia (HD)');
       }
     };
 
@@ -589,61 +602,134 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   };
 
   // 4. Pure Indonesian Text-To-Speech (TTS)
-  const speakText = (text: string) => {
-    if (isMuted || !speechSynthRef.current) return;
+  // Guarantees 100% Indonesian voice on all devices (PC & Mobile), never speaking English
+  const speakText = async (text: string) => {
+    if (isMuted) return;
 
     const spokenClean = formatForIndonesianSpeech(text);
     if (!spokenClean) return;
 
-    try {
-      speechSynthRef.current.cancel();
+    // Immediately stop any active speech or audio
+    stopSpeaking();
 
-      const utterance = new SpeechSynthesisUtterance(spokenClean);
-      utterance.lang = 'id-ID'; // Standard Indonesian Language Code
-      utterance.rate = 0.98; // Natural, conversational Indonesian pace
-      utterance.pitch = 1.0;
-
-      // Assign verified Indonesian voice
-      let voice = activeVoiceRef.current;
-      if (!voice && speechSynthRef.current) {
-        const voices = speechSynthRef.current.getVoices();
-        voice = findIndonesianVoice(voices);
-        if (voice) {
-          activeVoiceRef.current = voice;
-        }
-      }
-
+    // Check if browser has a verified Indonesian voice
+    let voice = activeVoiceRef.current;
+    if (!voice && speechSynthRef.current) {
+      const voices = speechSynthRef.current.getVoices();
+      voice = findIndonesianVoice(voices);
       if (voice) {
+        activeVoiceRef.current = voice;
+      }
+    }
+
+    // PATH A: If the browser HAS a verified Indonesian voice (e.g. mobile Android/iOS, or PC with Indonesian installed)
+    if (voice && speechSynthRef.current) {
+      try {
+        const utterance = new SpeechSynthesisUtterance(spokenClean);
         utterance.voice = voice;
+        utterance.lang = 'id-ID';
+        utterance.rate = 0.98;
+        utterance.pitch = 1.0;
+
+        utterance.onstart = () => {
+          setIsSpeaking(true);
+        };
+
+        utterance.onboundary = () => {
+          setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
+        };
+
+        utterance.onend = () => {
+          setIsSpeaking(false);
+          setVoiceVolumeScale(1.0);
+        };
+
+        utterance.onerror = () => {
+          setIsSpeaking(false);
+          setVoiceVolumeScale(1.0);
+        };
+
+        speechSynthRef.current.speak(utterance);
+        return;
+      } catch (err) {
+        console.warn('Browser SpeechSynthesis error, falling back to Gemini Indonesian TTS:', err);
+      }
+    }
+
+    // PATH B: GUARANTEED INDONESIAN AI VOICE FOR PC BROWSERS (gemini-3.1-flash-tts-preview)
+    // Prevents PC browsers with English OS from ever falling back to English voices like Microsoft David/Zira
+    try {
+      setIsSpeaking(true);
+      setVoiceVolumeScale(1.12);
+
+      const res = await fetch('/api/tts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: spokenClean, voiceName: 'Kore' }),
+      });
+
+      const json = await res.json();
+      if (!json.success || !json.audioUrl) {
+        throw new Error(json.error || 'Gagal memuat audio TTS');
       }
 
-      utterance.onstart = () => {
-        setIsSpeaking(true);
-      };
+      const audio = new Audio(json.audioUrl);
+      audioPlayerRef.current = audio;
 
-      utterance.onboundary = () => {
-        setVoiceVolumeScale((prev) => Math.min(prev + 0.08, 1.45));
-      };
+      // Animate waveform during speech playback
+      if (audioAnimationTimerRef.current) {
+        clearInterval(audioAnimationTimerRef.current);
+      }
+      audioAnimationTimerRef.current = setInterval(() => {
+        setVoiceVolumeScale(1.06 + Math.random() * 0.32);
+      }, 120);
 
-      utterance.onend = () => {
+      audio.onended = () => {
         setIsSpeaking(false);
         setVoiceVolumeScale(1.0);
+        if (audioAnimationTimerRef.current) {
+          clearInterval(audioAnimationTimerRef.current);
+          audioAnimationTimerRef.current = null;
+        }
       };
 
-      utterance.onerror = () => {
+      audio.onerror = () => {
         setIsSpeaking(false);
         setVoiceVolumeScale(1.0);
+        if (audioAnimationTimerRef.current) {
+          clearInterval(audioAnimationTimerRef.current);
+          audioAnimationTimerRef.current = null;
+        }
       };
 
-      speechSynthRef.current.speak(utterance);
-    } catch {
+      await audio.play();
+    } catch (err) {
+      console.error('Error playing Indonesian TTS audio:', err);
       setIsSpeaking(false);
+      setVoiceVolumeScale(1.0);
+      if (audioAnimationTimerRef.current) {
+        clearInterval(audioAnimationTimerRef.current);
+        audioAnimationTimerRef.current = null;
+      }
     }
   };
 
   const stopSpeaking = () => {
     if (speechSynthRef.current) {
-      speechSynthRef.current.cancel();
+      try {
+        speechSynthRef.current.cancel();
+      } catch {}
+    }
+    if (audioPlayerRef.current) {
+      try {
+        audioPlayerRef.current.pause();
+        audioPlayerRef.current.currentTime = 0;
+      } catch {}
+      audioPlayerRef.current = null;
+    }
+    if (audioAnimationTimerRef.current) {
+      clearInterval(audioAnimationTimerRef.current);
+      audioAnimationTimerRef.current = null;
     }
     setIsSpeaking(false);
     setVoiceVolumeScale(1.0);

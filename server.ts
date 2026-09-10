@@ -463,8 +463,8 @@ Stok saat ini terbatas (tersisa ${product.stock} unit). Jangan sampai nyesel keh
   });
 });
 
-// Feature 3: Voice Consultation Endpoint
-app.post('/api/ai/voice-consultation', async (req, res) => {
+// Feature 3: Voice Consultation Endpoint (Supports both paths)
+app.post(['/api/ai/voice-consultation', '/api/ai-voice-consultation'], async (req, res) => {
   const { query, storeProfile, products = [], transactions = [], history = [] } = req.body;
 
   if (!query || typeof query !== 'string') {
@@ -622,6 +622,112 @@ Keluarkan dalam format JSON murni:
       suggestedFollowUps: followUps,
     },
   });
+});
+
+// Helper: Convert linear PCM 24000Hz 16-bit mono into valid WAV Buffer
+function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): Buffer {
+  const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+  const blockAlign = numChannels * (bitsPerSample / 8);
+  const dataSize = pcmBuffer.length;
+  const header = Buffer.alloc(44);
+
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + dataSize, 4);
+  header.write('WAVE', 8);
+
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // Linear PCM format
+  header.writeUInt16LE(numChannels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+
+  header.write('data', 36);
+  header.writeUInt32LE(dataSize, 40);
+
+  return Buffer.concat([header, pcmBuffer]);
+}
+
+const ttsCache = new Map<string, string>();
+
+// Feature 4: Guaranteed Indonesian Text-to-Speech (TTS) Endpoint
+// Model: gemini-3.1-flash-tts-preview
+app.post('/api/tts', async (req, res) => {
+  const { text, voiceName = 'Kore' } = req.body || {};
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ error: 'Teks diperlukan untuk text-to-speech.' });
+  }
+
+  const cleanText = text
+    .replace(/[*#_`~[\]]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleanText) {
+    return res.status(400).json({ error: 'Teks bersih kosong.' });
+  }
+
+  // Check cache first for rapid sub-millisecond response
+  const cacheKey = `${voiceName}:${cleanText.substring(0, 160)}`;
+  if (ttsCache.has(cacheKey)) {
+    return res.json({
+      success: true,
+      audioUrl: ttsCache.get(cacheKey),
+      cached: true,
+      voice: voiceName,
+      lang: 'id-ID',
+    });
+  }
+
+  const ai = getGeminiClient();
+  if (!ai) {
+    return res.status(503).json({ error: 'Gemini client belum terkonfigurasi.' });
+  }
+
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-tts-preview',
+      contents: [{ parts: [{ text: cleanText }] }],
+      config: {
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName },
+          },
+        },
+      },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) {
+      return res.status(502).json({ error: 'Tidak ada audio yang dihasilkan oleh Gemini TTS.' });
+    }
+
+    const rawPcm = Buffer.from(base64Audio, 'base64');
+    const wavBuffer = pcmToWav(rawPcm, 24000);
+    const wavBase64 = wavBuffer.toString('base64');
+    const audioUrl = `data:audio/wav;base64,${wavBase64}`;
+
+    // Store in cache (limit up to 60 items)
+    if (ttsCache.size > 60) {
+      const firstKey = ttsCache.keys().next().value;
+      if (firstKey) ttsCache.delete(firstKey);
+    }
+    ttsCache.set(cacheKey, audioUrl);
+
+    return res.json({
+      success: true,
+      audioUrl,
+      cached: false,
+      voice: voiceName,
+      lang: 'id-ID',
+    });
+  } catch (err: any) {
+    console.error('Error in /api/tts:', err?.message || err);
+    return res.status(500).json({ error: 'Gagal membuat suara bahasa Indonesia.', details: err?.message });
+  }
 });
 
 async function startServer() {
