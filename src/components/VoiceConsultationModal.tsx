@@ -465,6 +465,81 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   };
 
   // 4. Robust Speech-To-Text Recognition
+  // Helper to deduplicate repeating speech segments (specifically fixing Android Chrome cumulative transcript bug)
+  const extractCleanTranscript = (results: any): string => {
+    if (!results || results.length === 0) return '';
+
+    const chunks: string[] = [];
+    for (let i = 0; i < results.length; i++) {
+      const piece = results[i]?.[0]?.transcript?.trim();
+      if (piece) {
+        chunks.push(piece);
+      }
+    }
+
+    if (chunks.length === 0) return '';
+    if (chunks.length === 1) return chunks[0];
+
+    // Android Chrome cumulative check:
+    // If the last chunk is a superset containing the first chunk,
+    // then the last chunk is the canonical full sentence recognized by Google Speech Services!
+    const firstChunk = chunks[0].toLowerCase();
+    const lastChunk = chunks[chunks.length - 1];
+    if (lastChunk.toLowerCase().startsWith(firstChunk) && lastChunk.length >= chunks[0].length) {
+      return lastChunk.trim();
+    }
+
+    // Sequential merge with boundary overlap detection
+    let merged = '';
+    for (let i = 0; i < chunks.length; i++) {
+      const chunk = chunks[i].trim();
+      if (!merged) {
+        merged = chunk;
+        continue;
+      }
+
+      const lowerMerged = merged.toLowerCase();
+      const lowerChunk = chunk.toLowerCase();
+
+      // Already contains chunk
+      if (lowerMerged.includes(lowerChunk)) {
+        continue;
+      }
+
+      // Chunk starts with already merged text (Android progressive update)
+      if (lowerChunk.startsWith(lowerMerged)) {
+        merged = chunk;
+        continue;
+      }
+
+      // Check word-level overlap
+      const mergedWords = merged.split(/\s+/);
+      const chunkWords = chunk.split(/\s+/);
+      let overlapCount = 0;
+      const maxLookback = Math.min(mergedWords.length, chunkWords.length);
+
+      for (let len = maxLookback; len >= 1; len--) {
+        const tail = mergedWords.slice(-len).join(' ').toLowerCase();
+        const head = chunkWords.slice(0, len).join(' ').toLowerCase();
+        if (tail === head) {
+          overlapCount = len;
+          break;
+        }
+      }
+
+      if (overlapCount > 0) {
+        const nonOverlapping = chunkWords.slice(overlapCount);
+        if (nonOverlapping.length > 0) {
+          merged = merged + ' ' + nonOverlapping.join(' ');
+        }
+      } else {
+        merged = merged + ' ' + chunk;
+      }
+    }
+
+    return merged.trim();
+  };
+
   // Accurately transcribes live words directly into the text input without hardware locking
   const createSpeechRecognitionInstance = useCallback(() => {
     const SpeechRecognition =
@@ -486,29 +561,16 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       };
 
       recognition.onresult = (event: any) => {
-        let finalStr = '';
-        let interimStr = '';
-
-        for (let i = 0; i < event.results.length; ++i) {
-          const piece = event.results[i][0]?.transcript || '';
-          if (event.results[i].isFinal) {
-            finalStr += piece;
-          } else {
-            interimStr += piece;
-          }
-        }
-
-        const liveSpokenWords = (finalStr + ' ' + interimStr).trim();
+        const liveSpokenWords = extractCleanTranscript(event.results);
 
         if (liveSpokenWords) {
-          // AUTOMATICALLY & INSTANTLY reflect spoken words in the text input!
+          // Cleanly set spoken words without stutter or repeating phrases
           setInputText(liveSpokenWords);
           currentLiveInputRef.current = liveSpokenWords;
           setTranscript(liveSpokenWords);
-          setInterimTranscript(interimStr);
           setVoiceVolumeScale(1.15 + Math.min(liveSpokenWords.length * 0.01, 0.35));
 
-          // Keep text input scrolled to latest word
+          // Auto-scroll input to end without taking focus or opening mobile keyboard
           if (inputRef.current) {
             inputRef.current.scrollLeft = inputRef.current.scrollWidth;
           }
@@ -518,7 +580,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Automatically send query 2200ms after speech pauses
+          // Automatically send query 2000ms after speech pauses
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
@@ -527,7 +589,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 handleSendQueryRef.current(textToSend);
               }
             }
-          }, 2200);
+          }, 2000);
         }
       };
 
@@ -545,7 +607,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 handleSendQueryRef.current(toSend);
               }
             }
-          }, 2000);
+          }, 1500);
         }
       };
 
@@ -563,20 +625,37 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       };
 
       recognition.onend = () => {
-        // If listening is still desired, restart smoothly
+        // If listening is still desired
         if (isListeningDesiredRef.current) {
-          setTimeout(() => {
-            if (isListeningDesiredRef.current) {
-              try {
-                recognition.start();
-              } catch {
+          const spokenText = currentLiveInputRef.current.trim();
+          // If the user already finished speaking a sentence, automatically submit!
+          if (spokenText && spokenText.length > 2) {
+            stopListening();
+            handleSendQueryRef.current(spokenText);
+          } else {
+            // User hasn't spoken yet (e.g. mobile silence timeout):
+            // Smoothly start a clean fresh instance
+            setTimeout(() => {
+              if (isListeningDesiredRef.current) {
                 try {
-                  recognitionRef.current = createSpeechRecognitionInstance();
-                  recognitionRef.current?.start();
-                } catch {}
+                  if (recognitionRef.current) {
+                    recognitionRef.current.onstart = null;
+                    recognitionRef.current.onresult = null;
+                    recognitionRef.current.onspeechend = null;
+                    recognitionRef.current.onerror = null;
+                    recognitionRef.current.onend = null;
+                    try { recognitionRef.current.abort(); } catch {}
+                    recognitionRef.current = null;
+                  }
+                  const fresh = createSpeechRecognitionInstance();
+                  recognitionRef.current = fresh;
+                  fresh?.start();
+                } catch (e) {
+                  console.warn('Recognition restart error:', e);
+                }
               }
-            }
-          }, 100);
+            }, 150);
+          }
         } else {
           setIsListening(false);
         }
@@ -606,28 +685,32 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       silenceTimerRef.current = null;
     }
 
-    try {
-      if (!recognitionRef.current) {
-        recognitionRef.current = createSpeechRecognitionInstance();
-      }
+    // CRITICAL FIX: Always release and destroy previous instance before starting fresh
+    // Prevents microphone lock, duplicate event listeners, and dead instances on 2nd+ uses
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onspeechend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
+      } catch {}
+      recognitionRef.current = null;
+    }
 
-      if (recognitionRef.current) {
-        try {
-          recognitionRef.current.start();
-        } catch {
-          // Re-instantiate if instance was expired
-          recognitionRef.current = createSpeechRecognitionInstance();
-          recognitionRef.current?.start();
-        }
+    try {
+      const freshRecognition = createSpeechRecognitionInstance();
+      recognitionRef.current = freshRecognition;
+      if (freshRecognition) {
+        freshRecognition.start();
       }
     } catch (err) {
       console.warn('Recognition start exception:', err);
     }
 
-    // Auto-focus input so user sees cursor ready
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 150);
+    // DO NOT call inputRef.current?.focus() here!
+    // On mobile devices, calling focus() forces the virtual keyboard to slide up and cover the voice UI.
   };
 
   const stopListening = () => {
@@ -641,8 +724,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
     if (recognitionRef.current) {
       try {
-        recognitionRef.current.stop();
+        recognitionRef.current.onstart = null;
+        recognitionRef.current.onresult = null;
+        recognitionRef.current.onspeechend = null;
+        recognitionRef.current.onerror = null;
+        recognitionRef.current.onend = null;
+        recognitionRef.current.abort();
       } catch {}
+      recognitionRef.current = null;
     }
   };
 
