@@ -463,105 +463,21 @@ Stok saat ini terbatas (tersisa ${product.stock} unit). Jangan sampai nyesel keh
   });
 });
 
-// Feature 3: Voice Consultation Endpoint (Supports both paths)
-app.post(['/api/ai/voice-consultation', '/api/ai-voice-consultation'], async (req, res) => {
-  const { query, storeProfile, products = [], transactions = [], history = [] } = req.body;
-
-  if (!query || typeof query !== 'string') {
-    return res.status(400).json({ error: 'Query suara diperlukan.' });
-  }
-
-  const userName = storeProfile?.ownerName || 'Juragan';
-  const storeName = storeProfile?.storeName || 'Toko UMKM';
-  const ai = getGeminiClient();
-
-  if (ai) {
-    try {
-      const prompt = `Anda adalah "Juragan Voice AI", asisten suara pintar dan konsultan bisnis langsung untuk pemilik toko UMKM Indonesia.
-Anda berinteraksi secara lisan langsung melalui suara (Voice Assistant).
-Bahasa: Bahasa Indonesia lisan yang santun, ramah, to-the-point, dan enak didengar ketika dibacakan Text-to-Speech.
-PENTING: Bagian "speechText" akan dibacakan langsung oleh suara AI, jadi HINDARI simbol markdown seperti tanda bintang (**), hashtag (#), atau tanda petik berlebihan.
-
-DATABASE TOKO SAAT INI:
-- Nama Toko: ${storeName}
-- Pemilik: ${userName}
-- Kategori: ${storeProfile?.category || 'Kuliner/Ritel'}
-- Kota: ${storeProfile?.city || 'Indonesia'}
-
-KATALOG PRODUK (${products.length} item):
-${products.map((p: any) => `- ID: ${p.id} | Nama: ${p.name} | Stok: ${p.stock} ${p.unit || 'pcs'} | Batas Kritis: ${p.minStockAlert || 5} | Harga Jual: Rp${(p.sellingPrice || 0).toLocaleString('id-ID')} | HPP: Rp${(p.costPrice || 0).toLocaleString('id-ID')}`).join('\n')}
-
-RIWAYAT TRANSAKSI TERAKHIR (${transactions.length} transaksi):
-${transactions.slice(0, 15).map((t: any) => `- ${t.date} | Produk: ${t.productName} | Qty: ${t.quantity} | Total: Rp${(t.totalPrice || 0).toLocaleString('id-ID')} | Laba: Rp${(t.profit || 0).toLocaleString('id-ID')} | Bayar: ${t.paymentMethod}`).join('\n')}
-
-RIWAYAT PERCAKAPAN SEBELUMNYA:
-${history.slice(-4).map((h: any) => `${h.role === 'user' ? 'Juragan' : 'AI'}: ${h.text}`).join('\n')}
-
-PERTANYAAN SUARA DARI PEMILIK TOKO:
-"${query}"
-
-TUGAS ANDA:
-1. Jika ditanya STOK (misal: "stok tinggal berapa", "cek stok sambal", "ada produk mau habis?"):
-   - Ambil data produk terkait dari daftar di atas secara akurat.
-   - Sebutkan angka stok riil dan satuannya.
-   - Peringatkan jika stok di bawah batas kritis.
-2. Jika ditanya OMZET / PENJUALAN / PRODUK TERLARIS:
-   - Hitung total atau sebutkan produk dengan penjualan terbanyak berdasarkan data transaksi di atas.
-3. Jika KONSULTASI STRATEGI / PROMOSI:
-   - Berikan tips praktis yang relevan dengan kondisi toko di atas.
-
-Keluarkan dalam format JSON murni:
-{
-  "speechText": "Jawaban ramah 1-3 kalimat lisan yang mengalir natural untuk dibacakan suara",
-  "displayText": "Jawaban tertulis lengkap untuk dibaca di layar",
-  "referencedProductIds": ["id_produk_1", "id_produk_2"],
-  "suggestedFollowUps": ["Pertanyaan saran 1", "Pertanyaan saran 2"]
-}`;
-
-      const result = await generateJsonWithFallback(ai, prompt, 0.6);
-
-      if (result) {
-        const parsed = JSON.parse(result.text || '{}');
-        const referencedProds = (parsed.referencedProductIds || [])
-          .map((id: string) => products.find((p: any) => p.id === id))
-          .filter(Boolean);
-
-        totalAdvisorCalls++;
-        aiActivityLogs.unshift({
-          id: 'log-' + Date.now(),
-          user: userName,
-          store: storeName,
-          feature: 'AI Advisor',
-          timestamp: new Date().toISOString(),
-          model: result.modelUsed,
-          status: 'success',
-        });
-
-        return res.json({
-          success: true,
-          source: result.modelUsed,
-          data: {
-            speechText: parsed.speechText || 'Halo Juragan, ada yang bisa saya bantu terkait stok dan penjualan toko hari ini?',
-            displayText: parsed.displayText || parsed.speechText,
-            referencedProducts: referencedProds,
-            suggestedFollowUps: parsed.suggestedFollowUps || ['Cek stok produk lain', 'Berapa omzet hari ini?'],
-          },
-        });
-      }
-    } catch {
-      // Fallback below
-    }
-  }
-
-  // Heuristic Smart Fallback with real store data
+// Helper: Heuristic smart fallback with real store data for voice consultation
+function generateVoiceConsultationFallback(
+  query: string,
+  products: any[],
+  transactions: any[],
+  userName: string,
+  storeName: string
+) {
   const lowerQuery = query.toLowerCase();
   let speechText = '';
   let displayText = '';
   let referencedProds: any[] = [];
   const followUps: string[] = ['Berapa sisa stok terendah?', 'Produk apa yang paling laris?', 'Saran promo minggu ini'];
 
-  // Check specific product mentioned
-  const matchedProd = products.find((p: any) => lowerQuery.includes(p.name.toLowerCase()));
+  const matchedProd = products.find((p: any) => lowerQuery.includes(p.name?.toLowerCase()));
 
   if (matchedProd) {
     referencedProds = [matchedProd];
@@ -601,6 +517,273 @@ Keluarkan dalam format JSON murni:
     displayText = `👋 **Halo Juragan ${userName}**!\nSaya adalah asisten suara bisnis Anda. Tanyakan apa saja seperti:\n- "Stok produk apa yang hampir habis?"\n- "Stok Sambal Bawang tinggal berapa?"\n- "Berapa total omzet toko saat ini?"`;
   }
 
+  return {
+    speechText,
+    displayText,
+    referencedProducts: referencedProds,
+    suggestedFollowUps: followUps,
+  };
+}
+
+// Feature 3: Voice Consultation Endpoint (Supports streaming and standard JSON)
+app.post(['/api/ai/voice-consultation', '/api/ai-voice-consultation'], async (req, res) => {
+  const { query, storeProfile, products = [], transactions = [], history = [], stream: requestStream } = req.body;
+  const isStreamRequested =
+    requestStream === true ||
+    req.headers.accept?.includes('text/event-stream') ||
+    req.query.stream === 'true';
+
+  if (!query || typeof query !== 'string') {
+    return res.status(400).json({ error: 'Query suara diperlukan.' });
+  }
+
+  const userName = storeProfile?.ownerName || 'Juragan';
+  const storeName = storeProfile?.storeName || 'Toko UMKM';
+  const ai = getGeminiClient();
+
+  // STREAMING RESPONSE HANDLER (ReadableStream / SSE)
+  if (isStreamRequested) {
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    let streamedAny = false;
+    let accumulatedText = '';
+    let modelUsed = 'gemini-3.1-flash-lite';
+
+    if (ai) {
+      const streamingPrompt = `Anda adalah "Juragan Voice AI", asisten suara pintar dan konsultan bisnis langsung untuk pemilik toko UMKM Indonesia.
+Bahasa: Bahasa Indonesia lisan yang santun, ramah, to-the-point, dan enak didengar.
+TUGAS: Berikan jawaban langsung, jelas, dan akurat (1-3 kalimat) berdasarkan data toko di bawah.
+
+DATABASE TOKO SAAT INI:
+- Nama Toko: ${storeName}
+- Pemilik: ${userName}
+- Kategori: ${storeProfile?.category || 'Kuliner/Ritel'}
+- Kota: ${storeProfile?.city || 'Indonesia'}
+
+KATALOG PRODUK (${products.length} item):
+${products.map((p: any) => `- ID: ${p.id} | Nama: ${p.name} | Stok: ${p.stock} ${p.unit || 'pcs'} | Batas Kritis: ${p.minStockAlert || 5} | Harga Jual: Rp${(p.sellingPrice || 0).toLocaleString('id-ID')}`).join('\n')}
+
+RIWAYAT TRANSAKSI TERAKHIR (${transactions.length} transaksi):
+${transactions.slice(0, 15).map((t: any) => `- ${t.date} | Produk: ${t.productName} | Qty: ${t.quantity} | Total: Rp${(t.totalPrice || 0).toLocaleString('id-ID')} | Laba: Rp${(t.profit || 0).toLocaleString('id-ID')}`).join('\n')}
+
+RIWAYAT PERCAKAPAN SEBELUMNYA:
+${history.slice(-4).map((h: any) => `${h.role === 'user' ? 'Juragan' : 'AI'}: ${h.text}`).join('\n')}
+
+PERTANYAAN SUARA:
+"${query}"
+
+Berikan jawaban langsung tanpa pembuka yang berbelit-belit.
+Di baris paling bawah, jika ada produk yang relevan atau ditanyakan, tuliskan:
+[PRODUK: id_atau_nama_produk_1, id_atau_nama_produk_2]
+Di baris paling akhir, berikan 2 saran pertanyaan tindak lanjut yang relevan dipisah tanda |:
+[SARAN: Saran pertanyaan 1 | Saran pertanyaan 2]`;
+
+      for (const model of CANDIDATE_MODELS) {
+        try {
+          const streamResponse = await ai.models.generateContentStream({
+            model,
+            contents: streamingPrompt,
+            config: {
+              temperature: 0.6,
+            },
+          });
+
+          for await (const chunk of streamResponse) {
+            const chunkText = chunk.text || '';
+            if (chunkText) {
+              streamedAny = true;
+              accumulatedText += chunkText;
+              res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
+            }
+          }
+
+          if (streamedAny) {
+            modelUsed = model;
+            break;
+          }
+        } catch (err: any) {
+          console.info(`Voice streaming attempt with ${model} error:`, err?.message);
+          if (streamedAny) {
+            break;
+          }
+        }
+      }
+    }
+
+    if (!streamedAny) {
+      // Stream smart heuristic fallback in readable words
+      const fallback = generateVoiceConsultationFallback(query, products, transactions, userName, storeName);
+      accumulatedText = fallback.displayText;
+      modelUsed = 'heuristic-store-engine';
+
+      const words = fallback.displayText.split(' ');
+      for (let i = 0; i < words.length; i += 3) {
+        const chunkText = words.slice(i, i + 3).join(' ') + (i + 3 < words.length ? ' ' : '');
+        res.write(`data: ${JSON.stringify({ type: 'chunk', text: chunkText })}\n\n`);
+      }
+
+      totalAdvisorCalls++;
+      aiActivityLogs.unshift({
+        id: 'log-' + Date.now(),
+        user: userName,
+        store: storeName,
+        feature: 'AI Advisor',
+        timestamp: new Date().toISOString(),
+        model: modelUsed,
+        status: 'fallback',
+      });
+
+      res.write(
+        `data: ${JSON.stringify({
+          type: 'done',
+          displayText: fallback.displayText,
+          speechText: fallback.speechText,
+          referencedProducts: fallback.referencedProducts,
+          suggestedFollowUps: fallback.suggestedFollowUps,
+        })}\n\n`
+      );
+      return res.end();
+    }
+
+    // Parse accumulated text from Gemini
+    const prodMatch = accumulatedText.match(/\[PRODUK:\s*(.*?)\]/i);
+    const saranMatch = accumulatedText.match(/\[SARAN:\s*(.*?)\]/i);
+
+    const cleanDisplayText = accumulatedText
+      .replace(/\[PRODUK:[\s\S]*?\]/gi, '')
+      .replace(/\[SARAN:[\s\S]*?\]/gi, '')
+      .trim();
+
+    const cleanSpeechText = cleanDisplayText
+      .replace(/[*#_`~]/g, '')
+      .replace(/\n+/g, ' ')
+      .trim();
+
+    let referencedProds: any[] = [];
+    if (prodMatch && prodMatch[1]) {
+      const items = prodMatch[1].split(',').map((s: string) => s.trim().toLowerCase());
+      referencedProds = products.filter((p: any) =>
+        items.some((item: string) => p.id?.toLowerCase() === item || p.name?.toLowerCase().includes(item))
+      );
+    } else {
+      referencedProds = products
+        .filter(
+          (p: any) =>
+            cleanDisplayText.toLowerCase().includes(p.name?.toLowerCase()) ||
+            query.toLowerCase().includes(p.name?.toLowerCase())
+        )
+        .slice(0, 3);
+    }
+
+    const followUps =
+      saranMatch && saranMatch[1]
+        ? saranMatch[1].split('|').map((s: string) => s.trim()).filter(Boolean)
+        : ['Berapa sisa stok terendah?', 'Produk apa yang paling laris?'];
+
+    totalAdvisorCalls++;
+    aiActivityLogs.unshift({
+      id: 'log-' + Date.now(),
+      user: userName,
+      store: storeName,
+      feature: 'AI Advisor',
+      timestamp: new Date().toISOString(),
+      model: modelUsed,
+      status: 'success',
+    });
+
+    res.write(
+      `data: ${JSON.stringify({
+        type: 'done',
+        displayText: cleanDisplayText,
+        speechText: cleanSpeechText,
+        referencedProducts: referencedProds,
+        suggestedFollowUps: followUps,
+      })}\n\n`
+    );
+    return res.end();
+  }
+
+  // STANDARD NON-STREAMING RESPONSE (JSON)
+  if (ai) {
+    try {
+      const prompt = `Anda adalah "Juragan Voice AI", asisten suara pintar dan konsultan bisnis langsung untuk pemilik toko UMKM Indonesia.
+Anda berinteraksi secara lisan langsung melalui suara (Voice Assistant).
+Bahasa: Bahasa Indonesia lisan yang santun, ramah, to-the-point, dan enak didengar ketika dibacakan Text-to-Speech.
+PENTING: Bagian "speechText" akan dibacakan langsung oleh suara AI, jadi HINDARI simbol markdown seperti tanda bintang (**), hashtag (#), atau tanda petik berlebihan.
+
+DATABASE TOKO SAAT INI:
+- Nama Toko: ${storeName}
+- Pemilik: ${userName}
+- Kategori: ${storeProfile?.category || 'Kuliner/Ritel'}
+- Kota: ${storeProfile?.city || 'Indonesia'}
+
+KATALOG PRODUK (${products.length} item):
+${products.map((p: any) => `- ID: ${p.id} | Nama: ${p.name} | Stok: ${p.stock} ${p.unit || 'pcs'} | Batas Kritis: ${p.minStockAlert || 5} | Harga Jual: Rp${(p.sellingPrice || 0).toLocaleString('id-ID')} | HPP: Rp${(p.costPrice || 0).toLocaleString('id-ID')}`).join('\n')}
+
+RIWAYAT TRANSAKSI TERAKHIR (${transactions.length} transaksi):
+${transactions.slice(0, 15).map((t: any) => `- ${t.date} | Produk: ${t.productName} | Qty: ${t.quantity} | Total: Rp${(t.totalPrice || 0).toLocaleString('id-ID')} | Laba: Rp${(t.profit || 0).toLocaleString('id-ID')} | Bayar: ${t.paymentMethod}`).join('\n')}
+
+RIWAYAT PERCAKAPAN SEBELUMNYA:
+${history.slice(-4).map((h: any) => `${h.role === 'user' ? 'Juragan' : 'AI'}: ${h.text}`).join('\n')}
+
+PERTANYAAN SUARA DARI PEMILIK TOKO:
+"${query}"
+
+TUGAS ANDA:
+1. Jika ditanya STOK: Ambil data produk terkait secara akurat, sebutkan sisa stok dan batas kritis.
+2. Jika ditanya OMZET/PENJUALAN: Hitung total transaksi atau sebutkan produk terlaris.
+3. Jika KONSULTASI STRATEGI: Berikan tips praktis yang relevan.
+
+Keluarkan dalam format JSON murni:
+{
+  "speechText": "Jawaban ramah 1-3 kalimat lisan yang mengalir natural untuk dibacakan suara",
+  "displayText": "Jawaban tertulis lengkap untuk dibaca di layar",
+  "referencedProductIds": ["id_produk_1", "id_produk_2"],
+  "suggestedFollowUps": ["Pertanyaan saran 1", "Pertanyaan saran 2"]
+}`;
+
+      const result = await generateJsonWithFallback(ai, prompt, 0.6);
+
+      if (result) {
+        const parsed = JSON.parse(result.text || '{}');
+        const referencedProds = (parsed.referencedProductIds || [])
+          .map((id: string) => products.find((p: any) => p.id === id || p.name?.toLowerCase().includes(id.toLowerCase())))
+          .filter(Boolean);
+
+        totalAdvisorCalls++;
+        aiActivityLogs.unshift({
+          id: 'log-' + Date.now(),
+          user: userName,
+          store: storeName,
+          feature: 'AI Advisor',
+          timestamp: new Date().toISOString(),
+          model: result.modelUsed,
+          status: 'success',
+        });
+
+        return res.json({
+          success: true,
+          source: result.modelUsed,
+          data: {
+            speechText: parsed.speechText || 'Halo Juragan, ada yang bisa saya bantu terkait stok dan penjualan toko hari ini?',
+            displayText: parsed.displayText || parsed.speechText,
+            referencedProducts: referencedProds,
+            suggestedFollowUps: parsed.suggestedFollowUps || ['Cek stok produk lain', 'Berapa omzet hari ini?'],
+          },
+        });
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  // Heuristic Smart Fallback with real store data
+  const fallback = generateVoiceConsultationFallback(query, products, transactions, userName, storeName);
+
   totalAdvisorCalls++;
   aiActivityLogs.unshift({
     id: 'log-' + Date.now(),
@@ -615,12 +798,7 @@ Keluarkan dalam format JSON murni:
   return res.json({
     success: true,
     source: 'store-database-engine',
-    data: {
-      speechText,
-      displayText,
-      referencedProducts: referencedProds,
-      suggestedFollowUps: followUps,
-    },
+    data: fallback,
   });
 });
 

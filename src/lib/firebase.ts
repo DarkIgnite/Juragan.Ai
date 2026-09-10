@@ -27,23 +27,20 @@ export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfi
 // Initialize Firebase Auth
 export const auth = getAuth(app);
 
-// Initialize Firestore with specific databaseId and long-polling transport for iframe sandbox reliability
-if (typeof window !== 'undefined' && getApps().length <= 1) {
+// Initialize Firestore with specific databaseId and auto-detect long polling for optimal connection stability
+export const db = (() => {
   try {
-    initializeFirestore(
+    return initializeFirestore(
       app,
       {
-        experimentalForceLongPolling: true,
+        experimentalAutoDetectLongPolling: true,
       },
       firebaseConfig.firestoreDatabaseId || undefined
     );
   } catch {
-    // Already initialized
+    return getFirestore(app, firebaseConfig.firestoreDatabaseId);
   }
-}
-
-// Export db instance with databaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+})();
 
 // Operation types for standard error handling per Firebase skill
 export enum OperationType {

@@ -101,6 +101,7 @@ export interface VoiceConsultationMessage {
   text: string;
   speechText?: string;
   timestamp: string;
+  isStreaming?: boolean;
   referencedProducts?: Array<{
     id: string;
     name: string;

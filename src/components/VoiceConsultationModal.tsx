@@ -453,7 +453,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Automatically send query 1.3 seconds after speech pauses / no more sound
+          // Automatically send query 850ms after speech pauses / no more sound
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
@@ -462,7 +462,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 handleSendQuery(textToSend);
               }
             }
-          }, 1300);
+          }, 850);
         }
       };
 
@@ -481,7 +481,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 handleSendQuery(toSend);
               }
             }
-          }, 1100);
+          }, 700);
         }
       };
 
@@ -752,15 +752,29 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
     };
 
-    setMessages((prev) => [...prev, userMsg]);
+    const aiMsgId = 'msg-' + (Date.now() + 1);
+    const initialAiMsg: VoiceConsultationMessage = {
+      id: aiMsgId,
+      role: 'assistant',
+      text: '',
+      isStreaming: true,
+      timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    // Immediately show user message and placeholder for AI streaming response
+    setMessages((prev) => [...prev, userMsg, initialAiMsg]);
     setIsLoading(true);
 
     try {
       const response = await fetch('/api/ai-voice-consultation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'text/event-stream',
+        },
         body: JSON.stringify({
           query: trimmed,
+          stream: true,
           history: messages.slice(-5).map((m) => ({ role: m.role, text: m.text })),
           products,
           transactions: transactions.slice(0, 30),
@@ -773,27 +787,117 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         }),
       });
 
-      const json = await response.json();
+      if (!response.ok) {
+        throw new Error(`HTTP error ${response.status}`);
+      }
 
-      if (json.success && json.data) {
-        const aiMsg: VoiceConsultationMessage = {
-          id: 'msg-' + (Date.now() + 1),
-          role: 'assistant',
-          text: json.data.displayText || json.data.speechText,
-          speechText: json.data.speechText,
-          timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-          referencedProducts: json.data.referencedProducts,
-        };
+      // If ReadableStream is available, stream text chunks in real-time
+      if (response.body && typeof response.body.getReader === 'function') {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder('utf-8');
+        let buffer = '';
+        let accumulatedRaw = '';
+        let speechToPlay = '';
+        let hasReceivedAnyChunk = false;
 
-        setMessages((prev) => [...prev, aiMsg]);
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-        if (json.data.suggestedFollowUps && json.data.suggestedFollowUps.length > 0) {
-          setSuggestedPrompts(json.data.suggestedFollowUps);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || '';
+
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine.startsWith('data:')) continue;
+            const dataStr = trimmedLine.replace(/^data:\s*/, '');
+            if (!dataStr) continue;
+
+            try {
+              const eventData = JSON.parse(dataStr);
+              if (eventData.type === 'chunk' && eventData.text) {
+                hasReceivedAnyChunk = true;
+                accumulatedRaw += eventData.text;
+
+                // Live strip tags so user never sees raw metadata brackets
+                const liveVisibleText = accumulatedRaw
+                  .replace(/\[PRODUK:[\s\S]*$/i, '')
+                  .replace(/\[SARAN:[\s\S]*$/i, '')
+                  .trimStart();
+
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId ? { ...m, text: liveVisibleText, isStreaming: true } : m
+                  )
+                );
+              } else if (eventData.type === 'done') {
+                const finalDisplay = eventData.displayText || accumulatedRaw;
+                speechToPlay = eventData.speechText || finalDisplay;
+
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === aiMsgId
+                      ? {
+                          ...m,
+                          text: finalDisplay,
+                          speechText: eventData.speechText,
+                          referencedProducts: eventData.referencedProducts,
+                          isStreaming: false,
+                        }
+                      : m
+                  )
+                );
+
+                if (eventData.suggestedFollowUps && eventData.suggestedFollowUps.length > 0) {
+                  setSuggestedPrompts(eventData.suggestedFollowUps);
+                }
+              }
+            } catch {
+              // Ignore partial JSON chunk parse failures
+            }
+          }
         }
 
-        speakText(json.data.speechText || json.data.displayText);
+        // Ensure streaming indicator is finalized
+        setMessages((prev) =>
+          prev.map((m) => (m.id === aiMsgId ? { ...m, isStreaming: false } : m))
+        );
+
+        if (speechToPlay || accumulatedRaw) {
+          speakText(speechToPlay || accumulatedRaw);
+          return;
+        }
+
+        if (!hasReceivedAnyChunk) {
+          throw new Error('Stream kosong.');
+        }
       } else {
-        throw new Error('Gagal mendapatkan respon AI.');
+        // Fallback for non-streamable environments
+        const json = await response.json();
+        if (json.success && json.data) {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === aiMsgId
+                ? {
+                    ...m,
+                    text: json.data.displayText || json.data.speechText,
+                    speechText: json.data.speechText,
+                    referencedProducts: json.data.referencedProducts,
+                    isStreaming: false,
+                  }
+                : m
+            )
+          );
+
+          if (json.data.suggestedFollowUps && json.data.suggestedFollowUps.length > 0) {
+            setSuggestedPrompts(json.data.suggestedFollowUps);
+          }
+
+          speakText(json.data.speechText || json.data.displayText);
+          return;
+        }
+        throw new Error('Respon tidak valid.');
       }
     } catch {
       // Local fallback in natural Indonesian with live store products
@@ -802,7 +906,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       let replyDisplay = '';
       let refProds: Product[] = [];
 
-      const matched = products.find((p) => lower.includes(p.name.toLowerCase()));
+      const matched = products.find((p) => lower.includes(p.name?.toLowerCase()));
       if (matched) {
         refProds = [matched];
         replySpeech = `Stok ${matched.name} saat ini tersisa ${matched.stock} ${matched.unit}. Harganya ${matched.sellingPrice.toLocaleString('id-ID')} rupiah.`;
@@ -827,16 +931,19 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         replyDisplay = `💡 Saya siap membantu memantau stok, mencatat omzet, atau merekomendasikan promo untuk toko Anda. Silakan tanyakan hal spesifik seperti "stok sambal sisa berapa?".`;
       }
 
-      const fallbackMsg: VoiceConsultationMessage = {
-        id: 'msg-' + (Date.now() + 1),
-        role: 'assistant',
-        text: replyDisplay,
-        speechText: replySpeech,
-        timestamp: new Date().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
-        referencedProducts: refProds,
-      };
-
-      setMessages((prev) => [...prev, fallbackMsg]);
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === aiMsgId
+            ? {
+                ...m,
+                text: replyDisplay,
+                speechText: replySpeech,
+                referencedProducts: refProds,
+                isStreaming: false,
+              }
+            : m
+        )
+      );
       speakText(replySpeech);
     } finally {
       setIsLoading(false);
@@ -1076,9 +1183,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     )}
                   </div>
                 ) : isLoading ? (
-                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold shadow-xs">
-                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-spin" />
-                    <span>Memeriksa data toko Anda...</span>
+                  <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold shadow-xs">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                    <span>Menghubungkan & merangkai jawaban real-time...</span>
                   </div>
                 ) : (
                   <button
@@ -1116,7 +1223,21 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                         : 'bg-white border border-zinc-200/90 text-zinc-800 rounded-bl-xs shadow-xs'
                     }`}
                   >
-                    <div className="whitespace-pre-line">{msg.text}</div>
+                    <div className="whitespace-pre-line">
+                      {msg.text ? (
+                        <>
+                          <span>{msg.text}</span>
+                          {msg.isStreaming && (
+                            <span className="inline-block w-1.5 h-3 ml-1 bg-emerald-500 animate-pulse rounded-full align-middle" />
+                          )}
+                        </>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-zinc-400 py-0.5">
+                          <Sparkles className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                          <span className="italic">Merangkai respon...</span>
+                        </span>
+                      )}
+                    </div>
 
                     {/* Referenced Store Products Card Grid in White Mode */}
                     {msg.referencedProducts && msg.referencedProducts.length > 0 && (
