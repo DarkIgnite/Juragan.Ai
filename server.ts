@@ -9,7 +9,8 @@ dotenv.config();
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '15mb' }));
+app.use(express.urlencoded({ extended: true, limit: '15mb' }));
 
 // In-memory counter for platform AI activity tracking (for Admin view)
 const aiActivityLogs: Array<{
@@ -524,6 +525,65 @@ function generateVoiceConsultationFallback(
     suggestedFollowUps: followUps,
   };
 }
+
+// Feature 3b: Server-Side Audio Transcription Endpoint (Bulletproof STT for PC & All Browsers)
+// Transcribes spoken audio recorded from the microphone using Gemini
+app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res) => {
+  try {
+    const { audioData, mimeType = 'audio/webm' } = req.body;
+
+    if (!audioData || typeof audioData !== 'string') {
+      return res.status(400).json({ error: 'Data rekaman audio diperlukan (base64 string).' });
+    }
+
+    const base64Clean = audioData.replace(/^data:[^;]+;base64,/, '').trim();
+    if (!base64Clean) {
+      return res.status(400).json({ error: 'Data audio kosong.' });
+    }
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(503).json({ error: 'AI client belum siap.' });
+    }
+
+    const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim();
+
+    // Transcribe with candidate models
+    for (const model of CANDIDATE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: [
+            {
+              inlineData: {
+                mimeType: cleanMime,
+                data: base64Clean,
+              },
+            },
+            {
+              text: 'Dengarkan audio suara Bahasa Indonesia ini dan transkripsikan kata-kata yang diucapkan menjadi teks persis seperti yang dikatakan oleh pembicara. KETENTUAN PENTING: Hanya kembalikan teks hasil transkripsi dalam Bahasa Indonesia murni. Jangan menambahkan tanda kutip, jangan memberi salam, dan jangan memberi penjelasan apapun. Jika audio hanya hening/noise/tidak ada kata yang terucap, kembalikan string kosong.',
+            },
+          ],
+        });
+
+        const rawText = response?.text?.trim() || '';
+        const cleanText = rawText
+          .replace(/^["'«»“„]+|["'«»”]+$/g, '')
+          .replace(/\b(EMPTY|HENING|TIDAK ADA SUARA)\b/gi, '')
+          .trim();
+
+        return res.json({ text: cleanText, modelUsed: model });
+      } catch (err: any) {
+        console.warn(`Transcription attempt with model ${model} failed:`, err?.message || err);
+      }
+    }
+
+    return res.json({ text: '' });
+  } catch (globalErr: any) {
+    console.error('Transcribe audio fatal error:', globalErr);
+    return res.status(500).json({ error: 'Gagal memproses audio rekaman.' });
+  }
+});
 
 // Feature 3: Voice Consultation Endpoint (Supports streaming and standard JSON)
 app.post(['/api/ai/voice-consultation', '/api/ai-voice-consultation'], async (req, res) => {

@@ -22,6 +22,8 @@ import {
   ReceiptText,
   ShieldCheck,
   Mic,
+  Home,
+  User,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { auth, testFirestoreConnection } from './lib/firebase';
@@ -251,146 +253,14 @@ export default function App() {
         onOpenGoogleAuth={() => setIsGoogleModalOpen(true)}
         onOpenVoiceConsultation={handleOpenVoiceConsultation}
         apiConnected={apiConnected}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        onOpenAddProduct={() => setIsProductModalOpen(true)}
+        onOpenAddSale={() => setIsSaleModalOpen(true)}
       />
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* Navigation Tabs (Apple-style segmented control) */}
-        <div className="flex items-center justify-between overflow-x-auto pb-1 border-b border-zinc-200/80 gap-3">
-          <div className="flex items-center gap-1.5 p-1 bg-zinc-200/70 rounded-2xl shrink-0">
-            {isAdmin ? (
-              <>
-                <button
-                  id="tab-admin-overview"
-                  onClick={() => setActiveTab('admin-overview')}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'admin-overview' || activeTab === 'dashboard'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                  <span>Ringkasan Platform &amp; Audit AI</span>
-                </button>
-
-                <button
-                  id="tab-admin-products"
-                  onClick={() => {
-                    setProductFilter('all');
-                    setHighlightProductId(undefined);
-                    setActiveTab('products');
-                  }}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'products'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <Package className="w-4 h-4 text-zinc-600" />
-                  <span>Semua Produk UMKM</span>
-                </button>
-
-                <button
-                  id="tab-admin-transactions"
-                  onClick={() => setActiveTab('transactions')}
-                  className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'transactions'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <ReceiptText className="w-4 h-4 text-zinc-600" />
-                  <span>Semua Transaksi Platform</span>
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  id="tab-juragan-dashboard"
-                  onClick={() => setActiveTab('dashboard')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'dashboard'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Dashboard</span>
-                </button>
-
-                <button
-                  id="tab-juragan-advisor"
-                  onClick={() => setActiveTab('advisor')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'advisor'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                  <span>AI Advisor</span>
-                </button>
-
-                <button
-                  id="tab-juragan-content"
-                  onClick={() => setActiveTab('content')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'content'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <Share2 className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>AI Konten</span>
-                </button>
-
-                <button
-                  id="tab-juragan-products"
-                  onClick={() => {
-                    setProductFilter('all');
-                    setHighlightProductId(undefined);
-                    setActiveTab('products');
-                  }}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'products'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <Package className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>Produk &amp; Stok</span>
-                </button>
-
-                <button
-                  id="tab-juragan-transactions"
-                  onClick={() => setActiveTab('transactions')}
-                  className={`inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all tactile-btn ${
-                    activeTab === 'transactions'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-600 hover:text-zinc-900'
-                  }`}
-                >
-                  <ReceiptText className="w-3.5 h-3.5 text-zinc-600" />
-                  <span>Riwayat Penjualan</span>
-                </button>
-              </>
-            )}
-          </div>
-
-          {/* Quick Voice Consultation Trigger in Tab Bar */}
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              id="btn-voice-consultation-tab"
-              onClick={handleOpenVoiceConsultation}
-              className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 text-zinc-800 shadow-xs border border-zinc-200 active:scale-[0.98] transition-all"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <Mic className="w-3.5 h-3.5 text-blue-600" />
-              <span>Konsultasi Suara</span>
-            </button>
-          </div>
-        </div>
-
+      {/* Main Content Area - Uncrowded, Breathable Social Layout */}
+      <main className="flex-1 max-w-5xl w-full mx-auto px-3 sm:px-6 py-4 sm:py-6 pb-24 md:pb-10">
         {/* Dynamic Views Content */}
         <AnimatePresence mode="wait">
           <motion.div
@@ -421,6 +291,7 @@ export default function App() {
                 onNavigateToTransactions={() => setActiveTab('transactions')}
                 onOpenAddProduct={() => setIsProductModalOpen(true)}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
+                onOpenVoiceConsultation={handleOpenVoiceConsultation}
               />
             )}
 
@@ -514,8 +385,87 @@ export default function App() {
         transactions={userTransactions}
       />
 
-      {/* Floating Voice Assistant Trigger (White Mode) */}
-      <div className="fixed bottom-5 right-5 z-40">
+      {/* Mobile Bottom Navigation Bar (Instagram & Facebook Native Style) */}
+      <nav
+        id="mobile-bottom-nav"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/90 py-1.5 px-3 flex items-center justify-around shadow-lg"
+      >
+        <button
+          id="btn-mobile-nav-home"
+          onClick={() => setActiveTab(isAdmin ? 'admin-overview' : 'dashboard')}
+          className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
+            activeTab === 'dashboard' || activeTab === 'admin-overview'
+              ? 'text-emerald-600 font-semibold'
+              : 'text-zinc-500 hover:text-zinc-800'
+          }`}
+        >
+          <Home className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Beranda</span>
+        </button>
+
+        <button
+          id="btn-mobile-nav-products"
+          onClick={() => {
+            setProductFilter('all');
+            setHighlightProductId(undefined);
+            setActiveTab('products');
+          }}
+          className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
+            activeTab === 'products'
+              ? 'text-emerald-600 font-semibold'
+              : 'text-zinc-500 hover:text-zinc-800'
+          }`}
+        >
+          <Package className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Katalog</span>
+        </button>
+
+        {/* Center Raised Voice AI Button (Instagram Story gradient style) */}
+        <button
+          id="btn-mobile-nav-voice"
+          onClick={handleOpenVoiceConsultation}
+          className="-mt-5 p-1 rounded-full bg-white shadow-md focus:outline-none active:scale-95 transition-transform"
+          title="Tanya Suara Juragan AI"
+        >
+          <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-blue-600 text-white flex items-center justify-center shadow-xs">
+            <Mic className="w-6 h-6 animate-pulse" />
+          </div>
+        </button>
+
+        <button
+          id="btn-mobile-nav-transactions"
+          onClick={() => setActiveTab('transactions')}
+          className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
+            activeTab === 'transactions'
+              ? 'text-emerald-600 font-semibold'
+              : 'text-zinc-500 hover:text-zinc-800'
+          }`}
+        >
+          <ReceiptText className="w-5 h-5" />
+          <span className="text-[10px] mt-0.5">Riwayat</span>
+        </button>
+
+        <button
+          id="btn-mobile-nav-profile"
+          onClick={() => setIsRoleModalOpen(true)}
+          className="flex flex-col items-center justify-center p-1.5 transition-colors text-zinc-500 hover:text-zinc-800"
+          title="Ganti Toko / Profil"
+        >
+          {currentUser.photoUrl ? (
+            <img
+              src={currentUser.photoUrl}
+              alt={currentUser.name}
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-zinc-300"
+            />
+          ) : (
+            <User className="w-5 h-5" />
+          )}
+          <span className="text-[10px] mt-0.5">Profil</span>
+        </button>
+      </nav>
+
+      {/* Floating Voice Assistant Trigger (Desktop Only) */}
+      <div className="hidden md:flex fixed bottom-6 right-6 z-40">
         <button
           id="btn-floating-voice-ai"
           onClick={handleOpenVoiceConsultation}
@@ -540,7 +490,7 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-500">
+      <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-500 mb-14 md:mb-0">
         <p>
           <strong>Juragan.AI</strong> — AI Business Companion untuk UMKM Mikro &amp; Kecil Indonesia
         </p>

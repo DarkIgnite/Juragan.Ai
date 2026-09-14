@@ -268,13 +268,54 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const handleSendQueryRef = useRef<(text: string) => void>(() => {});
 
-  // Check STT browser support
+  // Dedicated refs for bulletproof cross-browser (PC & Mobile) speech recording & fallback
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedAudioChunksRef = useRef<Blob[]>([]);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
+
+  // Check STT browser support (Web Speech API or universal MediaDevices + Audio API)
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const hasSTT = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-      setIsSTTSupported(hasSTT);
+      const hasWebSpeech = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      const hasMedia = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+      setIsSTTSupported(hasWebSpeech || hasMedia);
     }
   }, []);
+
+  // Real-time audio analyser polling for live PC microphone visual feedback
+  useEffect(() => {
+    let animFrame: number;
+
+    const pollVolume = () => {
+      if (isListening && analyserRef.current) {
+        const analyser = analyserRef.current;
+        const dataArray = new Uint8Array(analyser.frequencyBinCount);
+        analyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        const norm = Math.min(avg / 128, 1);
+        if (norm > 0.04) {
+          setVoiceVolumeScale(1.08 + norm * 0.45);
+        }
+      }
+      animFrame = requestAnimationFrame(pollVolume);
+    };
+
+    if (isListening) {
+      animFrame = requestAnimationFrame(pollVolume);
+    }
+
+    return () => {
+      if (animFrame) cancelAnimationFrame(animFrame);
+    };
+  }, [isListening]);
 
   // 1. Initialize Voices & Listen to dynamic voice list updates
   useEffect(() => {
@@ -585,6 +626,41 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     return merged.trim();
   };
 
+  // Helper to transcribe raw recorded audio buffer via Gemini API
+  const transcribeAudioBuffer = async (audioBlob: Blob): Promise<string> => {
+    try {
+      if (!audioBlob || audioBlob.size < 500) {
+        return '';
+      }
+
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve, reject) => {
+        reader.onloadend = () => {
+          resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+      });
+      reader.readAsDataURL(audioBlob);
+      const base64DataUrl = await base64Promise;
+
+      const res = await fetch('/api/ai/transcribe-audio', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          audioData: base64DataUrl,
+          mimeType: audioBlob.type || 'audio/webm',
+        }),
+      });
+
+      if (!res.ok) return '';
+      const data = await res.json();
+      return (data.text || '').trim();
+    } catch (err) {
+      console.warn('transcribeAudioBuffer error:', err);
+      return '';
+    }
+  };
+
   // Accurately transcribes live words directly into the text input without hardware locking
   const createSpeechRecognitionInstance = useCallback(() => {
     const SpeechRecognition =
@@ -630,8 +706,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
               if (textToSend && textToSend.length > 2) {
-                stopListening();
-                handleSendQueryRef.current(textToSend);
+                stopListening(true);
               }
             }
           }, 2000);
@@ -648,8 +723,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             if (isListeningDesiredRef.current) {
               const toSend = currentLiveInputRef.current.trim();
               if (toSend && toSend.length > 2) {
-                stopListening();
-                handleSendQueryRef.current(toSend);
+                stopListening(true);
               }
             }
           }, 1500);
@@ -663,9 +737,13 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         }
 
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          isListeningDesiredRef.current = false;
-          setIsListening(false);
-          setMicPermissionDenied(true);
+          // If mediaStream is already active via getUserMedia, do not trigger scary UI error;
+          // MediaRecorder and Gemini server fallback will cleanly transcribe the speech!
+          if (!mediaStreamRef.current?.active) {
+            isListeningDesiredRef.current = false;
+            setIsListening(false);
+            setMicPermissionDenied(true);
+          }
         }
       };
 
@@ -675,11 +753,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           const spokenText = currentLiveInputRef.current.trim();
           // If the user already finished speaking a sentence, automatically submit!
           if (spokenText && spokenText.length > 2) {
-            stopListening();
-            handleSendQueryRef.current(spokenText);
+            stopListening(true);
           } else {
-            // User hasn't spoken yet (e.g. mobile silence timeout):
-            // Smoothly start a clean fresh instance
+            // User hasn't spoken yet or paused:
+            // Smoothly restart a fresh instance
             setTimeout(() => {
               if (isListeningDesiredRef.current) {
                 try {
@@ -712,7 +789,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
   }, []);
 
-  const startListening = () => {
+  const startListening = async () => {
     if (isSpeaking) {
       stopSpeaking();
     }
@@ -730,8 +807,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       silenceTimerRef.current = null;
     }
 
-    // CRITICAL FIX: Always release and destroy previous instance before starting fresh
-    // Prevents microphone lock, duplicate event listeners, and dead instances on 2nd+ uses
+    // Step 1: Clean previous recognition & recorder instances
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onstart = null;
@@ -744,6 +820,87 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognitionRef.current = null;
     }
 
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        mediaRecorderRef.current.stop();
+      } catch {}
+    }
+    recordedAudioChunksRef.current = [];
+
+    // Step 2: Request real microphone stream (Crucial for PC browser & iframe permissions!)
+    let stream: MediaStream | null = mediaStreamRef.current;
+    if (!stream || !stream.active) {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true,
+            },
+          });
+          mediaStreamRef.current = stream;
+          setMicPermissionDenied(false);
+        } catch (mediaErr: any) {
+          console.warn('Microphone getUserMedia error:', mediaErr);
+          if (mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError') {
+            setMicPermissionDenied(true);
+            setIsListening(false);
+            isListeningDesiredRef.current = false;
+            return;
+          }
+        }
+      }
+    }
+
+    if (!isListeningDesiredRef.current) return;
+
+    // Step 3: Setup Audio Analyser for live visual feedback from PC microphone
+    if (stream) {
+      try {
+        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioCtx && !audioContextRef.current) {
+          const ctx = new AudioCtx();
+          const analyser = ctx.createAnalyser();
+          analyser.fftSize = 64;
+          const source = ctx.createMediaStreamSource(stream);
+          source.connect(analyser);
+          audioContextRef.current = ctx;
+          analyserRef.current = analyser;
+        }
+      } catch (e) {
+        console.warn('AudioContext init error:', e);
+      }
+    }
+
+    // Step 4: Initialize MediaRecorder (Dual engine fallback for PC Chrome/Firefox/Edge/Brave)
+    if (stream && typeof MediaRecorder !== 'undefined') {
+      try {
+        const preferredTypes = [
+          'audio/webm;codecs=opus',
+          'audio/webm',
+          'audio/ogg;codecs=opus',
+          'audio/mp4',
+          '',
+        ];
+        const chosenType = preferredTypes.find((t) => !t || MediaRecorder.isTypeSupported(t)) || '';
+        const rec = chosenType ? new MediaRecorder(stream, { mimeType: chosenType }) : new MediaRecorder(stream);
+        mediaRecorderRef.current = rec;
+        recordedAudioChunksRef.current = [];
+
+        rec.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            recordedAudioChunksRef.current.push(e.data);
+          }
+        };
+
+        rec.start(200);
+      } catch (e) {
+        console.warn('MediaRecorder error:', e);
+      }
+    }
+
+    // Step 5: Start Web Speech API for immediate live transcription
     try {
       const freshRecognition = createSpeechRecognitionInstance();
       recognitionRef.current = freshRecognition;
@@ -753,12 +910,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     } catch (err) {
       console.warn('Recognition start exception:', err);
     }
-
-    // DO NOT call inputRef.current?.focus() here!
-    // On mobile devices, calling focus() forces the virtual keyboard to slide up and cover the voice UI.
   };
 
-  const stopListening = () => {
+  const stopListening = async (shouldAutoSubmit: boolean = false) => {
     isListeningDesiredRef.current = false;
     setIsListening(false);
 
@@ -778,6 +932,50 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       } catch {}
       recognitionRef.current = null;
     }
+
+    const textToSend = (currentLiveInputRef.current || inputText).trim();
+
+    // If Web Speech API captured text, send it immediately
+    if (textToSend && textToSend.length > 1) {
+      if (shouldAutoSubmit) {
+        handleSendQueryRef.current(textToSend);
+      }
+      return;
+    }
+
+    // If no text captured via Web Speech API, fall back to MediaRecorder + Gemini server transcription
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      try {
+        setIsTranscribingAudio(true);
+        const stopPromise = new Promise<Blob>((resolve) => {
+          if (!mediaRecorderRef.current) {
+            resolve(new Blob(recordedAudioChunksRef.current, { type: 'audio/webm' }));
+            return;
+          }
+          mediaRecorderRef.current.onstop = () => {
+            const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
+            resolve(new Blob(recordedAudioChunksRef.current, { type: mime }));
+          };
+          mediaRecorderRef.current.stop();
+        });
+
+        const audioBlob = await stopPromise;
+        const transcribedText = await transcribeAudioBuffer(audioBlob);
+        setIsTranscribingAudio(false);
+
+        if (transcribedText && transcribedText.length > 1) {
+          setInputText(transcribedText);
+          currentLiveInputRef.current = transcribedText;
+          setTranscript(transcribedText);
+          if (shouldAutoSubmit) {
+            handleSendQueryRef.current(transcribedText);
+          }
+        }
+      } catch (err) {
+        console.warn('Audio fallback error:', err);
+        setIsTranscribingAudio(false);
+      }
+    }
   };
 
   const toggleListening = () => {
@@ -786,11 +984,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
 
     if (isListening) {
-      const pendingText = (currentLiveInputRef.current || inputText).trim();
-      stopListening();
-      if (pendingText) {
-        handleSendQueryRef.current(pendingText);
-      }
+      stopListening(true);
     } else {
       startListening();
     }
@@ -1192,6 +1386,11 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                         />
                       ))}
                     </div>
+                  ) : isTranscribingAudio ? (
+                    <div className="flex flex-col items-center justify-center text-emerald-600">
+                      <Sparkles className="w-8 h-8 animate-spin text-emerald-600" />
+                      <span className="text-[10px] font-bold mt-1 text-emerald-700">Menyalin...</span>
+                    </div>
                   ) : isListening ? (
                     <div className="flex flex-col items-center justify-center text-emerald-600">
                       <Mic className="w-8 h-8 animate-pulse" />
@@ -1210,7 +1409,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
               {/* Status Indicator & Live Captions */}
               <div className="mt-4 z-10 text-center">
-                {micPermissionDenied ? (
+                {isTranscribingAudio ? (
+                  <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs animate-pulse">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                    <span>Menyalin suara Anda ke teks (Gemini AI)...</span>
+                  </div>
+                ) : micPermissionDenied ? (
                   <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs">
                     <span className="flex items-center gap-1.5 text-amber-800 font-bold">
                       <span>⚠️ Akses mikrofon diblokir oleh browser</span>
