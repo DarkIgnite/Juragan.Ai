@@ -389,61 +389,57 @@ Keluarkan output dalam JSON valid:
 
   if (selectedPlatform === 'whatsapp') {
     fallbackContent = {
-      hook: `Halo Kak! Ada kabar gembira dari ${storeName || 'toko kami'} nih ✨`,
-      caption: `Halo Kak, salam hangat dari ${storeName || 'Juragan Store'}! 😊
+      hook: `Halo Kak! Ada penawaran khusus dari ${storeName || 'toko kami'} untuk hari ini.`,
+      caption: `Halo Kak, salam hangat dari ${storeName || 'Juragan Store'}.
 
-Banyak yang tanya restock untuk *${product.name}*, hari ini stok baru selesai siap kirim lho!
-Kualitas bahan nomor satu, dijamin fresh & mantap banget.
+Banyak yang menanyakan restock untuk *${product.name}*, hari ini stok baru telah siap dikirim.
+Kualitas bahan baku terjamin fresh dan terbaik.
 
-💰 *Harga Spesial:* ${formattedPrice}
-📦 *Sisa Stok Terbatas:* Hanya sisa ${product.stock} ${product.unit || 'pcs'} lagi!
-🎁 *Promo:* ${specialOffer || 'Beli 2 gratis pouch eksklusif / Subsidi Ongkir'}
+• Harga Spesial: ${formattedPrice}
+• Sisa Stok: ${product.stock} ${product.unit || 'pcs'}
+• Promo: ${specialOffer || 'Beli 2 gratis pouch eksklusif / Subsidi Ongkir'}
 
-Mau amankan pesanan sekarang sebelum kehabisan?
-Cukup balas chat ini dengan format:
+Format Pemesanan Cepat:
 Nama:
-Alamat Lengkap:
-Jumlah Pesan:
+Alamat:
+Jumlah Pesanan:
 
-Kami siap proses kirim hari ini ya Kak! Terima kasih banyak sudah mendukung produk UMKM lokal! ❤️`,
-      callToAction: 'Balas chat ini sekarang untuk amankan stok hari ini!',
+Pesanan akan langsung diproses hari ini. Terima kasih telah mendukung produk UMKM lokal.`,
+      callToAction: 'Balas pesan ini sekarang untuk mengamankan stok pesanan Anda.',
       hashtags: ['#JuraganWA', '#PromoUMKM', '#ProdukLokal'],
       platformTips: 'Kirim di jam istirahat siang (11.30 - 13.00) atau malam santai (19.00 - 20.30) untuk respon tercepat.',
     };
   } else if (selectedPlatform === 'tiktok') {
     fallbackContent = {
-      hook: `Jangan scroll dulu kalau kamu belum pernah nyobain ${product.name} yang lagi viral ini! 😱🔥`,
-      caption: `POV: Kamu nemuin produk lokal yang rasanya/kualitasnya bikin nagih terus tiap hari! 😍
+      hook: `Rekomendasi produk lokal terbaik: ${product.name} dari ${storeName || 'kami'}.`,
+      caption: `Produk pilihan yang wajib dicoba: *${product.name}* dari ${storeName || 'kami'}.
+Kualitas terbaik dengan harga terjangkau, hanya ${formattedPrice}.
+${specialOffer ? `Penawaran terbatas: ${specialOffer}` : 'Stok cepat habis karena tingginya permintaan.'}
 
-Kenalin *${product.name}* dari ${storeName || 'kami'}!
-Bikin hari-hari makin bersemangat, harganya cuma ${formattedPrice} aja!
-${specialOffer ? `Lagi ada promo: ${specialOffer}` : 'Stok cepat habis karena banyak yang borong!'}
-
-👉 Buruan klik keranjang kuning di kiri bawah sebelum kehabisan batch hari ini ya Guys!`,
-      callToAction: 'Klik keranjang kuning sekarang dan claim voucher diskonnya!',
-      hashtags: ['#RacunTikTok', '#ProdukLokal', '#UMKMIndonesia', '#MurahNampol', '#FYPBisnis', '#SpillProduk'],
+Cek keranjang sekarang sebelum kehabisan batch produksi hari ini.`,
+      callToAction: 'Cek keranjang sekarang dan klaim voucher diskonnya.',
+      hashtags: ['#RacunTikTok', '#ProdukLokal', '#UMKMIndonesia', '#KreatifLokal', '#FYPIndonesia', '#SpillProduk'],
       platformTips: 'Gunakan sound yang sedang trending di TikTok dan upload di jam 12.00 - 13.00 atau 18.30 - 20.00 WIB.',
     };
   } else {
     // Instagram default
     fallbackContent = {
-      hook: `Siapa yang dari kemarin nungguin restock ${product.name}? Akhirnya ready lagi! 🎉`,
-      caption: `Paling nggak bisa nolak kalau udah ketemu sama *${product.name}*! ✨
+      hook: `Restock resmi: ${product.name} kini siap dipesan di ${storeName || 'toko kami'}.`,
+      caption: `Perkenalkan *${product.name}*, produk unggulan dari ${storeName || 'Juragan'}.
+Dibuat dengan standar kualitas terbaik untuk mendukung aktivitas harian Anda.
 
-Dibuat sepenuh hati dengan standar kualitas terbaik untuk Sahabat ${storeName || 'Juragan'}. Cocok banget buat nemenin aktivitas harian atau jadi hadiah buat orang tersayang.
+Keunggulan Produk:
+• Standar mutu bahan baku pilihan
+• Harga terjangkau: *${formattedPrice}*
+• Ulasan kepuasan pelanggan bintang 5
+${specialOffer ? `• Penawaran Khusus: ${specialOffer}` : ''}
 
-Kenapa harus coba?
-✅ Kualitas bahan baku pilihan
-✅ Harga terjangkau: cuma *${formattedPrice}*
-✅ Terjual ratusan paket dengan ulasan bintang 5
-${specialOffer ? `🔥 Penawaran Khusus: ${specialOffer}` : ''}
+Stok saat ini terbatas (tersisa ${product.stock} unit).
 
-Stok saat ini terbatas (tersisa ${product.stock} unit). Jangan sampai nyesel kehabisan ya!
-
-🛍️ Cara Order:
-1. Klik link di bio kami
-2. Atau DM langsung: "Mau Order ${product.name}"`,
-      callToAction: 'Klik tautan di Bio profil kami atau kirim DM langsung sekarang juga!',
+Cara Pemesanan:
+1. Klik tautan di bio profil kami
+2. Atau kirim Direct Message (DM): "Pesan ${product.name}"`,
+      callToAction: 'Klik tautan di bio atau kirim Direct Message (DM) sekarang juga.',
       hashtags: [
         '#BanggaBuatanIndonesia',
         '#UMKMJuara',
