@@ -23,6 +23,13 @@ import {
   X,
   Share2,
   ArrowUpRight,
+  Crown,
+  Heart,
+  Zap,
+  ShoppingBag,
+  Cpu,
+  Sprout,
+  Palette,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,21 +38,39 @@ interface AiContentGeneratorViewProps {
   products: Product[];
 }
 
-export type PromoTemplateId = 'pinterest-arch' | 'olive-bistro' | 'terracotta-sale' | 'modern-clean';
+export type PromoTemplateId =
+  | 'pinterest-arch'
+  | 'olive-bistro'
+  | 'terracotta-sale'
+  | 'midnight-luxury'
+  | 'pastel-bakery'
+  | 'street-food-neon'
+  | 'modern-clean'
+  | 'batik-nusantara'
+  | 'cyber-teal'
+  | 'fresh-agro';
+
+export type TemplateLayoutStyle = 'arch' | 'card' | 'luxury' | 'neon' | 'clean' | 'circle';
 
 interface TemplateConfig {
   id: PromoTemplateId;
   name: string;
+  category: string;
   Icon: React.ElementType;
   tagline: string;
   badgeTag?: string;
-  layoutStyle: 'arch' | 'card' | 'banner' | 'clean';
+  headline: string;
+  subheadline: string;
+  layoutStyle: TemplateLayoutStyle;
+  isDark?: boolean;
   colors: {
     bg: string;
     textDark: string;
+    textMuted: string;
     primary: string;
     secondary: string;
     accent: string;
+    accentText?: string;
     priceBg: string;
     priceText: string;
     ctaBg: string;
@@ -57,17 +82,22 @@ interface TemplateConfig {
 const TEMPLATES: TemplateConfig[] = [
   {
     id: 'pinterest-arch',
-    name: 'Artisan Arch (Pinterest)',
+    name: 'Artisan Arch',
+    category: 'Cafe & Bakery',
     Icon: LayoutTemplate,
-    tagline: 'Krem & Arch Melengkung',
-    badgeTag: 'Format Pinterest',
+    tagline: 'Krem Linen & Arch Melengkung',
+    badgeTag: 'Pinterest',
+    headline: 'MENU SPESIAL',
+    subheadline: 'CITA RASA TERBAIK • REKOMENDASI JUARA',
     layoutStyle: 'arch',
     colors: {
       bg: '#FAF6ED',
       textDark: '#1C1B18',
+      textMuted: '#57534E',
       primary: '#C25E25', // Terracotta
       secondary: '#4A5D2E', // Olive Green
       accent: '#E5A93C', // Mustard
+      accentText: '#1C1B18',
       priceBg: '#4A5D2E',
       priceText: '#FFFFFF',
       ctaBg: '#1C1B18',
@@ -78,15 +108,21 @@ const TEMPLATES: TemplateConfig[] = [
   {
     id: 'olive-bistro',
     name: 'Olive Sage Bistro',
+    category: 'Healthy & Cafe',
     Icon: Leaf,
     tagline: 'Zaitun & Emas Lembut',
+    badgeTag: 'Organik',
+    headline: 'PILIHAN SEHAT',
+    subheadline: 'SEGAR • HIGIENIS • KUALITAS TERBAIK',
     layoutStyle: 'arch',
     colors: {
       bg: '#F5F7F2',
       textDark: '#1E2818',
+      textMuted: '#4E5D46',
       primary: '#4A5D2E',
       secondary: '#C25E25',
       accent: '#D4A338',
+      accentText: '#1E2818',
       priceBg: '#C25E25',
       priceText: '#FFFFFF',
       ctaBg: '#4A5D2E',
@@ -97,15 +133,21 @@ const TEMPLATES: TemplateConfig[] = [
   {
     id: 'terracotta-sale',
     name: 'Terracotta Promo',
+    category: 'Diskon Kilat',
     Icon: Flame,
-    tagline: 'Burnt Orange & Diskon',
+    tagline: 'Burnt Orange & Flash Sale',
+    badgeTag: 'Diskon',
+    headline: 'DISKON SPESIAL',
+    subheadline: 'HEMAT HARI INI • JANGAN SAMPAI KEHABISAN',
     layoutStyle: 'card',
     colors: {
       bg: '#FDF7F2',
       textDark: '#261208',
+      textMuted: '#6C3C24',
       primary: '#C84C1C',
       secondary: '#D97706',
       accent: '#F59E0B',
+      accentText: '#261208',
       priceBg: '#C84C1C',
       priceText: '#FFFFFF',
       ctaBg: '#261208',
@@ -114,22 +156,180 @@ const TEMPLATES: TemplateConfig[] = [
     },
   },
   {
+    id: 'midnight-luxury',
+    name: 'Midnight Luxury',
+    category: 'Premium & Elegan',
+    Icon: Crown,
+    tagline: 'Emas Mewah & Hitam Obsidian',
+    badgeTag: 'Elegan',
+    headline: 'EXCLUSIVE EDITION',
+    subheadline: 'KUALITAS TINGGI • KEMEWAHAN SEJATI',
+    layoutStyle: 'luxury',
+    isDark: true,
+    colors: {
+      bg: '#111215',
+      textDark: '#F8FAFC',
+      textMuted: '#94A3B8',
+      primary: '#F59E0B', // Amber Gold
+      secondary: '#FBBF24',
+      accent: '#D97706',
+      accentText: '#FFFFFF',
+      priceBg: '#F59E0B',
+      priceText: '#0F172A',
+      ctaBg: '#F8FAFC',
+      ctaText: '#0F172A',
+      archBorder: '#D97706',
+    },
+  },
+  {
+    id: 'pastel-bakery',
+    name: 'Pastel Bakery',
+    category: 'Kue, Boba & Manis',
+    Icon: Heart,
+    tagline: 'Soft Rose & Honey Manis',
+    badgeTag: 'Manis',
+    headline: 'SWEET DELIGHTS',
+    subheadline: 'MANISNYA PAS • BIKIN MOOD HAPPY',
+    layoutStyle: 'circle',
+    colors: {
+      bg: '#FFF5F7',
+      textDark: '#4C1D2F',
+      textMuted: '#834057',
+      primary: '#E11D48',
+      secondary: '#FB7185',
+      accent: '#FBBF24',
+      accentText: '#4C1D2F',
+      priceBg: '#E11D48',
+      priceText: '#FFFFFF',
+      ctaBg: '#4C1D2F',
+      ctaText: '#FFFFFF',
+      archBorder: '#FB7185',
+    },
+  },
+  {
+    id: 'street-food-neon',
+    name: 'Street Food Pop',
+    category: 'Geprek & Street Food',
+    Icon: Zap,
+    tagline: 'Kuning & Merah Enerjik',
+    badgeTag: 'Hot',
+    headline: 'SUPER LEZAT',
+    subheadline: 'PEDAS GURIH • BIKIN KETAGIHAN',
+    layoutStyle: 'neon',
+    colors: {
+      bg: '#FEFCE8',
+      textDark: '#18181B',
+      textMuted: '#52525B',
+      primary: '#DC2626',
+      secondary: '#F59E0B',
+      accent: '#FACC15',
+      accentText: '#18181B',
+      priceBg: '#DC2626',
+      priceText: '#FFFFFF',
+      ctaBg: '#18181B',
+      ctaText: '#FEFCE8',
+      archBorder: '#18181B',
+    },
+  },
+  {
     id: 'modern-clean',
     name: 'Studio Minimalis',
+    category: 'Minimalis Modern',
     Icon: Layers,
-    tagline: 'Bersih & Kontras Modern',
+    tagline: 'Putih Bersih & Emerald Kontras',
+    badgeTag: 'Clean',
+    headline: 'BEST COLLECTION',
+    subheadline: 'DESAIN BERKELAS • KUALITAS TERBAIK',
     layoutStyle: 'clean',
     colors: {
       bg: '#F8FAFC',
       textDark: '#0F172A',
+      textMuted: '#475569',
       primary: '#059669',
       secondary: '#0284C7',
       accent: '#F59E0B',
+      accentText: '#0F172A',
       priceBg: '#059669',
       priceText: '#FFFFFF',
       ctaBg: '#0F172A',
       ctaText: '#FFFFFF',
-      archBorder: '#E2E8F0',
+      archBorder: '#CBD5E1',
+    },
+  },
+  {
+    id: 'batik-nusantara',
+    name: 'Batik Nusantara',
+    category: 'Heritage & Kriya',
+    Icon: ShoppingBag,
+    tagline: 'Cokelat Kayu & Emas Tembaga',
+    badgeTag: 'Etnik',
+    headline: 'KARYA NUSANTARA',
+    subheadline: 'WARISAN BUDAYA • SENTUHAN MODERN',
+    layoutStyle: 'arch',
+    colors: {
+      bg: '#FAF3EA',
+      textDark: '#29180C',
+      textMuted: '#634731',
+      primary: '#854D0E',
+      secondary: '#A16207',
+      accent: '#D97706',
+      accentText: '#FFFFFF',
+      priceBg: '#854D0E',
+      priceText: '#FFFFFF',
+      ctaBg: '#29180C',
+      ctaText: '#FAF3EA',
+      archBorder: '#854D0E',
+    },
+  },
+  {
+    id: 'cyber-teal',
+    name: 'Cyber Tech',
+    category: 'Gadget & Distro',
+    Icon: Cpu,
+    tagline: 'Dark Navy & Neon Cyan',
+    badgeTag: 'Cyber',
+    headline: 'NEW ARRIVAL',
+    subheadline: 'PERFORMA TINGGI • GAYA MAKSIMAL',
+    layoutStyle: 'neon',
+    isDark: true,
+    colors: {
+      bg: '#0A0F1D',
+      textDark: '#FFFFFF',
+      textMuted: '#94A3B8',
+      primary: '#06B6D4',
+      secondary: '#3B82F6',
+      accent: '#10B981',
+      accentText: '#0A0F1D',
+      priceBg: '#06B6D4',
+      priceText: '#0A0F1D',
+      ctaBg: '#06B6D4',
+      ctaText: '#0A0F1D',
+      archBorder: '#06B6D4',
+    },
+  },
+  {
+    id: 'fresh-agro',
+    name: 'Fresh Agro',
+    category: 'Segar & Organik',
+    Icon: Sprout,
+    tagline: 'Hijau Daun & Lemon Segar',
+    badgeTag: 'Fresh',
+    headline: 'SEGAR & ALAMI',
+    subheadline: 'DIPETIK SEGAR • KUALITAS TERJAMIN',
+    layoutStyle: 'card',
+    colors: {
+      bg: '#F0FDF4',
+      textDark: '#14532D',
+      textMuted: '#166534',
+      primary: '#16A34A',
+      secondary: '#65A30D',
+      accent: '#FACC15',
+      accentText: '#14532D',
+      priceBg: '#16A34A',
+      priceText: '#FFFFFF',
+      ctaBg: '#14532D',
+      ctaText: '#FFFFFF',
+      archBorder: '#16A34A',
     },
   },
 ];
@@ -183,7 +383,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
         body: JSON.stringify({
           product: selectedProduct,
           platform: aspectRatio === '9:16' ? 'tiktok' : 'instagram',
-          tone: selectedTemplate === 'terracotta-sale' ? 'persuasif' : 'santai',
+          tone: getToneFromTemplate(selectedTemplate),
           specialOffer: promoText,
           storeName: currentUser.storeName,
         }),
@@ -202,13 +402,60 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     }
   };
 
-  useEffect(() => {
-    if (selectedProduct) {
-      handleGenerate();
+  const getToneFromTemplate = (tId: PromoTemplateId): string => {
+    switch (tId) {
+      case 'terracotta-sale':
+      case 'street-food-neon':
+        return 'persuasif';
+      case 'midnight-luxury':
+        return 'profesional';
+      case 'pastel-bakery':
+        return 'ramah';
+      case 'cyber-teal':
+        return 'modern';
+      case 'batik-nusantara':
+        return 'elegan';
+      case 'fresh-agro':
+        return 'segar';
+      default:
+        return 'santai';
     }
-  }, [selectedProductId, selectedTemplate]);
+  };
 
-  // High-resolution Canvas generator matching the Pinterest / Artisan Arch aesthetic
+  const drawFramePath = (
+    ctx: CanvasRenderingContext2D,
+    style: TemplateLayoutStyle,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+    r: number
+  ) => {
+    ctx.beginPath();
+    if (style === 'arch') {
+      const bottomRadius = 24;
+      ctx.arc(x + r, y + r, r, Math.PI, 0, false);
+      ctx.lineTo(x + w, y + h - bottomRadius);
+      ctx.arcTo(x + w, y + h, x + w - bottomRadius, y + h, bottomRadius);
+      ctx.lineTo(x + bottomRadius, y + h);
+      ctx.arcTo(x, y + h, x, y + h - bottomRadius, bottomRadius);
+      ctx.closePath();
+    } else if (style === 'circle') {
+      const circleR = Math.min(w, h) / 2;
+      ctx.arc(x + w / 2, y + h / 2, circleR, 0, Math.PI * 2);
+      ctx.closePath();
+    } else if (style === 'luxury') {
+      ctx.roundRect(x, y, w, h, 28);
+    } else if (style === 'neon') {
+      ctx.roundRect(x, y, w, h, 36);
+    } else if (style === 'clean') {
+      ctx.roundRect(x, y, w, h, 24);
+    } else {
+      ctx.roundRect(x, y, w, h, 44);
+    }
+  };
+
+  // High-resolution Canvas generator matching the selected template layout and colors
   const generatePosterBlob = async (forceRatio?: '1:1' | '9:16'): Promise<Blob | null> => {
     const ratioToUse = forceRatio || aspectRatio;
     const width = 1080;
@@ -222,14 +469,14 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
 
     const c = activeTemplate.colors;
 
-    // 1. Draw Canvas Background (Warm Cream / Linen base)
+    // 1. Draw Canvas Background
     ctx.fillStyle = c.bg;
     ctx.fillRect(0, 0, width, height);
 
     // Decorative subtle geometric dots
     ctx.save();
-    ctx.fillStyle = c.primary;
-    ctx.globalAlpha = 0.12;
+    ctx.fillStyle = activeTemplate.isDark ? '#F8FAFC' : c.primary;
+    ctx.globalAlpha = activeTemplate.isDark ? 0.08 : 0.12;
     for (let i = 0; i < 5; i++) {
       ctx.beginPath();
       ctx.arc(60 + i * 20, 60, 4, 0, Math.PI * 2);
@@ -240,34 +487,55 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     }
     ctx.restore();
 
-    // 2. Calculate Arch Frame Dimensions
-    let archW: number;
-    let archH: number;
-    let archX: number;
-    let archY: number;
+    // 2. Calculate Frame Dimensions according to layoutStyle and aspect ratio
+    let frameW: number;
+    let frameH: number;
+    let frameX: number;
+    let frameY: number;
     let radius: number;
 
-    if (ratioToUse === '9:16') {
-      archW = 860;
-      archH = 960;
-      archX = (width - archW) / 2;
-      archY = 320;
-      radius = archW / 2;
+    if (activeTemplate.layoutStyle === 'circle') {
+      if (ratioToUse === '9:16') {
+        frameW = 780;
+        frameH = 780;
+        frameX = (width - frameW) / 2;
+        frameY = 370;
+      } else {
+        frameW = 540;
+        frameH = 540;
+        frameX = (width - frameW) / 2;
+        frameY = 200;
+      }
+      radius = frameW / 2;
+    } else if (ratioToUse === '9:16') {
+      frameW = 860;
+      frameH = 960;
+      frameX = (width - frameW) / 2;
+      frameY = 320;
+      radius = frameW / 2;
     } else {
-      archW = 680;
-      archH = 550;
-      archX = (width - archW) / 2;
-      archY = 200;
-      radius = archW / 2;
+      frameW = 680;
+      frameH = 550;
+      frameX = (width - frameW) / 2;
+      frameY = 200;
+      radius = frameW / 2;
     }
 
-    // 3. Draw Product Image inside Arch Cutout
+    // 2b. If neon pop style, draw solid offset shadow behind frame
+    if (activeTemplate.layoutStyle === 'neon') {
+      ctx.save();
+      ctx.fillStyle = '#18181B';
+      drawFramePath(ctx, activeTemplate.layoutStyle, frameX + 16, frameY + 16, frameW, frameH, radius);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // 3. Draw Product Image inside Cutout
     await new Promise<void>((resolve) => {
       if (!selectedProduct?.imageUrl) {
         ctx.save();
-        ctx.fillStyle = '#E5E0D5';
-        ctx.beginPath();
-        drawArchPath(ctx, archX, archY, archW, archH, radius);
+        ctx.fillStyle = activeTemplate.isDark ? '#1E293B' : '#E5E0D5';
+        drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
         ctx.fill();
         ctx.restore();
         resolve();
@@ -279,33 +547,32 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       img.onload = () => {
         try {
           ctx.save();
-          ctx.beginPath();
-          drawArchPath(ctx, archX, archY, archW, archH, radius);
+          drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
           ctx.clip();
 
           const imgRatio = img.width / img.height;
-          const targetRatio = archW / archH;
-          let renderW = archW;
-          let renderH = archH;
-          let offsetX = archX;
-          let offsetY = archY;
+          const targetRatio = frameW / frameH;
+          let renderW = frameW;
+          let renderH = frameH;
+          let offsetX = frameX;
+          let offsetY = frameY;
 
           if (imgRatio > targetRatio) {
-            renderW = archH * imgRatio;
-            offsetX = archX - (renderW - archW) / 2;
+            renderW = frameH * imgRatio;
+            offsetX = frameX - (renderW - frameW) / 2;
           } else {
-            renderH = archW / imgRatio;
-            offsetY = archY - (renderH - archH) / 2;
+            renderH = frameW / imgRatio;
+            offsetY = frameY - (renderH - frameH) / 2;
           }
 
           ctx.drawImage(img, offsetX, offsetY, renderW, renderH);
 
-          // Subtle gradient at the bottom of the arch
-          const bottomGrad = ctx.createLinearGradient(0, archY + archH - 160, 0, archY + archH);
+          // Subtle gradient at the bottom of the photo frame
+          const bottomGrad = ctx.createLinearGradient(0, frameY + frameH - 160, 0, frameY + frameH);
           bottomGrad.addColorStop(0, 'rgba(0,0,0,0)');
           bottomGrad.addColorStop(1, 'rgba(0,0,0,0.4)');
           ctx.fillStyle = bottomGrad;
-          ctx.fillRect(archX, archY + archH - 160, archW, 160);
+          ctx.fillRect(frameX, frameY + frameH - 160, frameW, 160);
 
           ctx.restore();
           resolve();
@@ -317,18 +584,43 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       img.src = selectedProduct.imageUrl;
     });
 
-    // 4. Draw Arch Border
+    // 4. Draw Frame Border
     ctx.save();
-    ctx.strokeStyle = c.archBorder;
-    ctx.lineWidth = 10;
-    ctx.beginPath();
-    drawArchPath(ctx, archX, archY, archW, archH, radius);
-    ctx.stroke();
+    if (activeTemplate.layoutStyle === 'neon') {
+      ctx.strokeStyle = c.archBorder;
+      ctx.lineWidth = 12;
+      drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
+      ctx.stroke();
+    } else if (activeTemplate.layoutStyle === 'luxury') {
+      ctx.strokeStyle = c.archBorder;
+      ctx.lineWidth = 8;
+      drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
+      ctx.stroke();
+
+      // Delicate inner gold border
+      ctx.strokeStyle = 'rgba(251, 191, 36, 0.4)';
+      ctx.lineWidth = 2;
+      drawFramePath(
+        ctx,
+        activeTemplate.layoutStyle,
+        frameX + 10,
+        frameY + 10,
+        frameW - 20,
+        frameH - 20,
+        Math.max(8, radius - 10)
+      );
+      ctx.stroke();
+    } else {
+      ctx.strokeStyle = c.archBorder;
+      ctx.lineWidth = 10;
+      drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
+      ctx.stroke();
+    }
     ctx.restore();
 
-    // 5. Header: Clean typography without emojis
+    // 5. Header: Clean typography adapted to template tone
     ctx.save();
-    ctx.fillStyle = c.textDark;
+    ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : (c.textMuted || c.textDark);
     ctx.textAlign = 'center';
 
     const storePillY = ratioToUse === '9:16' ? 90 : 54;
@@ -338,18 +630,18 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     const titleY = ratioToUse === '9:16' ? 180 : 124;
     ctx.font = '900 56px sans-serif';
     ctx.fillStyle = c.primary;
-    ctx.fillText('MENU SPESIAL', width / 2, titleY);
+    ctx.fillText(activeTemplate.headline, width / 2, titleY);
 
     const subY = titleY + 44;
     ctx.font = '600 22px sans-serif';
-    ctx.fillStyle = c.textDark;
-    ctx.fillText('CITA RASA TERBAIK • REKOMENDASI JUARA', width / 2, subY);
+    ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : c.textDark;
+    ctx.fillText(activeTemplate.subheadline, width / 2, subY);
     ctx.restore();
 
     // 6. Floating Promo Seal (Clean vector badge)
     if (promoText) {
-      const stickerX = archX + archW - 40;
-      const stickerY = archY + 40;
+      const stickerX = frameX + frameW - 40;
+      const stickerY = frameY + 40;
       const stickerR = 75;
 
       ctx.save();
@@ -365,7 +657,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       ctx.arc(stickerX, stickerY, stickerR - 6, 0, Math.PI * 2);
       ctx.stroke();
 
-      ctx.fillStyle = c.textDark;
+      ctx.fillStyle = c.accentText || c.textDark;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.font = 'bold 20px sans-serif';
@@ -378,7 +670,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     }
 
     // 7. Bottom Content
-    let bottomStartY = archY + archH + (ratioToUse === '9:16' ? 50 : 30);
+    const bottomStartY = frameY + frameH + (ratioToUse === '9:16' ? 50 : 30);
 
     ctx.save();
     ctx.fillStyle = c.textDark;
@@ -390,7 +682,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     const hookY = bottomStartY + 64;
     const hook = generatedContent?.hook || 'Pilihan lezat dengan bahan berkualitas tinggi.';
     ctx.font = 'normal 26px sans-serif';
-    ctx.fillStyle = '#4A4639';
+    ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : (c.textMuted || '#4A4639');
     ctx.fillText(hook.slice(0, 56) + (hook.length > 56 ? '...' : ''), width / 2, hookY);
     ctx.restore();
 
@@ -439,23 +731,11 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     });
   };
 
-  const drawArchPath = (
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    w: number,
-    h: number,
-    r: number
-  ) => {
-    const bottomRadius = 24;
-    ctx.beginPath();
-    ctx.arc(x + r, y + r, r, Math.PI, 0, false);
-    ctx.lineTo(x + w, y + h - bottomRadius);
-    ctx.arcTo(x + w, y + h, x + w - bottomRadius, y + h, bottomRadius);
-    ctx.lineTo(x + bottomRadius, y + h);
-    ctx.arcTo(x, y + h, x, y + h - bottomRadius, bottomRadius);
-    ctx.closePath();
-  };
+  useEffect(() => {
+    if (selectedProduct) {
+      handleGenerate();
+    }
+  }, [selectedProductId, selectedTemplate]);
 
   // 1. Download PNG
   const handleDownload = async () => {
@@ -757,18 +1037,20 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-start">
         {/* KOLOM KIRI: Visual Foto Promo Sesuai Contoh Pinterest (5 Kolom) */}
         <div className="md:col-span-5 flex flex-col items-center">
-          {/* PILIHAN TEMPLATE FOTO DENGAN VECTOR ICON */}
+          {/* PILIHAN TEMPLATE FOTO DENGAN VECTOR ICON & PALETTE WARNA */}
           <div className="w-full max-w-sm mb-3">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                Pilih Template Desain:
+              <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider flex items-center gap-1">
+                <Palette className="w-3.5 h-3.5 text-emerald-600" />
+                <span>Tema Desain (10 Pilihan):</span>
               </span>
-              <span className="text-[10px] text-zinc-400 font-medium">
+              <span className="text-[10px] text-zinc-400 font-medium truncate max-w-[150px]">
                 {activeTemplate.tagline}
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+            {/* Grid 10 Template dengan Color Swatches */}
+            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto p-1.5 bg-zinc-50/90 rounded-2xl border border-zinc-200 shadow-2xs">
               {TEMPLATES.map((t) => {
                 const IconComponent = t.Icon;
                 const isSelected = selectedTemplate === t.id;
@@ -776,59 +1058,117 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   <button
                     key={t.id}
                     onClick={() => setSelectedTemplate(t.id)}
-                    className={`p-2 rounded-xl text-xs font-semibold flex flex-col items-center gap-1.5 transition-all cursor-pointer relative ${
+                    className={`p-2 rounded-xl text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-zinc-900 text-white shadow-xs scale-[1.02]'
-                        : 'bg-white text-zinc-600 hover:text-zinc-900 hover:bg-zinc-50 border border-zinc-200'
+                        ? 'bg-zinc-900 text-white shadow-xs ring-2 ring-zinc-900'
+                        : 'bg-white text-zinc-700 hover:bg-zinc-100/80 border border-zinc-200'
                     }`}
                   >
-                    <IconComponent
-                      className={`w-4 h-4 ${
-                        isSelected ? 'text-white' : 'text-zinc-500'
-                      }`}
-                    />
-                    <span className="text-[11px] leading-tight font-medium text-center truncate w-full">
-                      {t.name}
-                    </span>
-                    {t.badgeTag && (
-                      <span className="text-[9px] px-1 py-0.2 rounded bg-zinc-100 text-zinc-800 font-medium border border-zinc-200 tracking-tight">
-                        {t.badgeTag}
+                    <div className="flex items-center justify-between gap-1 mb-1">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <IconComponent
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            isSelected ? 'text-amber-300' : 'text-zinc-500'
+                          }`}
+                        />
+                        <span className="text-[11px] font-bold truncate">
+                          {t.name}
+                        </span>
+                      </div>
+                      {t.badgeTag && (
+                        <span
+                          className={`text-[8px] px-1 py-0.2 rounded font-semibold shrink-0 ${
+                            isSelected
+                              ? 'bg-zinc-800 text-amber-300 border border-zinc-700'
+                              : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+                          }`}
+                        >
+                          {t.badgeTag}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-zinc-100/30">
+                      <span
+                        className={`text-[9px] truncate ${
+                          isSelected ? 'text-zinc-300' : 'text-zinc-400'
+                        }`}
+                      >
+                        {t.category}
                       </span>
-                    )}
+                      {/* Color Palette Swatches */}
+                      <div className="flex items-center gap-0.5 shrink-0 ml-1">
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs"
+                          style={{ backgroundColor: t.colors.primary }}
+                          title="Warna Utama"
+                        />
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs"
+                          style={{ backgroundColor: t.colors.accent }}
+                          title="Warna Aksen"
+                        />
+                        <span
+                          className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs"
+                          style={{ backgroundColor: t.colors.bg }}
+                          title="Warna Background"
+                        />
+                      </div>
+                    </div>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* KARTU PREVIEW FOTO PROMO (Sesuai Gaya Pinterest Arch & Linen) */}
+          {/* KARTU PREVIEW FOTO PROMO (Sesuai Gaya Desain & Palet Warna yang Dipilih) */}
           <div
             style={{ backgroundColor: activeTemplate.colors.bg }}
-            className={`w-full max-w-sm relative rounded-2xl overflow-hidden shadow-sm border border-zinc-200 select-none p-4 flex flex-col justify-between ${
+            className={`w-full max-w-sm relative rounded-2xl overflow-hidden shadow-sm border border-zinc-200 select-none p-4 flex flex-col justify-between transition-colors duration-300 ${
               aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'
             }`}
           >
             {/* Header Toko & Judul Atas */}
             <div className="text-center pt-1">
-              <div className="text-[10px] font-bold tracking-widest text-zinc-700 uppercase">
+              <div
+                className={`text-[10px] font-bold tracking-widest uppercase ${
+                  activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-600'
+                }`}
+              >
                 • {currentUser.storeName} •
               </div>
               <h2
                 style={{ color: activeTemplate.colors.primary }}
-                className="text-lg font-black tracking-tight mt-0.5 uppercase"
+                className="text-lg font-black tracking-tight mt-0.5 uppercase font-sans"
               >
-                MENU SPESIAL
+                {activeTemplate.headline}
               </h2>
-              <div className="text-[9px] font-medium text-zinc-600 tracking-wide">
-                CITA RASA TERBAIK • REKOMENDASI JUARA
+              <div
+                className={`text-[9px] font-medium tracking-wide ${
+                  activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-500'
+                }`}
+              >
+                {activeTemplate.subheadline}
               </div>
             </div>
 
-            {/* JENDELA ARCH FOTO (Signature Bentuk Melengkung Pinterest) */}
+            {/* JENDELA FOTO DENGAN VARIASI BENTUK FRAME */}
             <div className="relative mx-auto w-full flex-1 my-2 flex items-center justify-center">
               <div
                 style={{ borderColor: activeTemplate.colors.archBorder }}
-                className="relative w-4/5 h-full max-h-56 sm:max-h-64 rounded-t-[999px] rounded-b-xl border-4 overflow-hidden shadow-xs bg-zinc-100"
+                className={`relative overflow-hidden bg-zinc-100 transition-all duration-300 ${
+                  activeTemplate.layoutStyle === 'arch'
+                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-t-[999px] rounded-b-xl border-4 shadow-xs'
+                    : activeTemplate.layoutStyle === 'circle'
+                    ? 'w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 shadow-md'
+                    : activeTemplate.layoutStyle === 'luxury'
+                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 ring-2 ring-amber-400/40 shadow-xl'
+                    : activeTemplate.layoutStyle === 'neon'
+                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-3 border-zinc-900 shadow-[5px_5px_0px_#18181b]'
+                    : activeTemplate.layoutStyle === 'clean'
+                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 shadow-xs'
+                    : 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-3xl border-4 shadow-md'
+                }`}
               >
                 {selectedProduct?.imageUrl ? (
                   <img
@@ -844,16 +1184,16 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   </div>
                 )}
 
-                {/* Bayangan halus di bawah arch */}
+                {/* Bayangan halus di bawah foto */}
                 <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
               </div>
 
-              {/* Floating Sticker Promo (Top Right of Arch) */}
+              {/* Floating Sticker Promo (Top Right of Photo) */}
               {promoText && (
                 <div
                   style={{
                     backgroundColor: activeTemplate.colors.accent,
-                    color: activeTemplate.colors.textDark,
+                    color: activeTemplate.colors.accentText || activeTemplate.colors.textDark,
                   }}
                   className="absolute -top-1.5 right-3 w-14 h-14 rounded-full border-2 border-white shadow-sm flex flex-col items-center justify-center p-1 text-center animate-in zoom-in-95 duration-200 z-10"
                 >
@@ -879,7 +1219,11 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                 >
                   {selectedProduct?.name}
                 </h3>
-                <p className="text-[10px] text-zinc-600 line-clamp-1 mt-0.5">
+                <p
+                  className={`text-[10px] line-clamp-1 mt-0.5 ${
+                    activeTemplate.isDark ? 'text-zinc-300' : 'text-zinc-600'
+                  }`}
+                >
                   {generatedContent?.hook || 'Pilihan lezat dengan bahan berkualitas tinggi.'}
                 </p>
               </div>
