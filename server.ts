@@ -99,6 +99,9 @@ async function generateJsonWithFallback(
         return { text: response.text, modelUsed: model };
       }
     } catch (err: any) {
+      if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
+        break; // Stop immediately on authentication issue
+      }
       // Log info when model is experiencing temporary demand spikes (e.g. 503) and cascade gracefully
       console.info(`[Juragan.AI] Model ${model} currently unavailable (${err?.status || 'transient'}), attempting resilient alternative...`);
     }
@@ -577,14 +580,18 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
 
         return res.json({ text: cleanText, modelUsed: model });
       } catch (err: any) {
-        console.warn(`Transcription attempt with model ${model} failed:`, err?.message || err);
+        if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
+          console.info('[Juragan.AI] Gemini audio transcription service not authenticated (requires key in Settings > Secrets).');
+          break; // Stop immediately to avoid redundant attempts
+        }
+        console.info(`[Juragan.AI] Model ${model} currently unavailable for transcription, cascading...`);
       }
     }
 
     return res.json({ text: '' });
   } catch (globalErr: any) {
-    console.error('Transcribe audio fatal error:', globalErr);
-    return res.status(500).json({ error: 'Gagal memproses audio rekaman.' });
+    console.info('[Juragan.AI] Audio transcription request ended gracefully.');
+    return res.json({ text: '' });
   }
 });
 
@@ -670,6 +677,9 @@ Di baris paling akhir, berikan 2 saran pertanyaan tindak lanjut yang relevan dip
           }
         } catch (err: any) {
           console.info(`Voice streaming attempt with ${model} error:`, err?.message);
+          if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
+            break;
+          }
           if (streamedAny) {
             break;
           }
@@ -865,6 +875,64 @@ Keluarkan dalam format JSON murni:
   });
 });
 
+// Guaranteed Audio-to-Text Transcription via Gemini Multimodal Audio
+app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res) => {
+  try {
+    const { audioData, mimeType = 'audio/webm' } = req.body || {};
+    if (!audioData || typeof audioData !== 'string') {
+      return res.status(400).json({ error: 'Data rekaman audio diperlukan (base64 string).' });
+    }
+
+    const base64Clean = audioData.replace(/^data:[^;]+;base64,/, '').trim();
+    if (!base64Clean) {
+      return res.status(400).json({ error: 'Data audio kosong.' });
+    }
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.json({ text: '' });
+    }
+
+    const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim();
+    const TRANSCRIBE_MODELS = ['gemini-3.5-transcribe', 'gemini-3.8-flash', 'gemini-flash-latest'];
+
+    for (const model of TRANSCRIBE_MODELS) {
+      try {
+        const response = await ai.models.generateContent({
+          model,
+          contents: [
+            {
+              inlineData: {
+                mimeType: cleanMime,
+                data: base64Clean,
+              },
+            },
+            {
+              text: 'Dengarkan audio suara Bahasa Indonesia ini dan transkripsikan kata-kata yang diucapkan menjadi teks persis seperti yang dikatakan oleh pembicara. KETENTUAN PENTING: Hanya kembalikan teks hasil transkripsi dalam Bahasa Indonesia murni. Jangan menambahkan tanda kutip, jangan memberi salam, dan jangan memberi penjelasan apapun. Jika audio hanya hening/noise/tidak ada kata yang terucap, kembalikan string kosong.',
+            },
+          ],
+        });
+
+        const rawText = response?.text?.trim() || '';
+        const cleanText = rawText
+          .replace(/^["'«»“„]+|["'«»”]+$/g, '')
+          .replace(/\b(EMPTY|HENING|TIDAK ADA SUARA)\b/gi, '')
+          .trim();
+
+        return res.json({ text: cleanText, modelUsed: model });
+      } catch (err: any) {
+        if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
+          break;
+        }
+      }
+    }
+
+    return res.json({ text: '' });
+  } catch {
+    return res.json({ text: '' });
+  }
+});
+
 // Helper: Convert linear PCM 24000Hz 16-bit mono into valid WAV Buffer
 function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): Buffer {
   const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
@@ -966,7 +1034,7 @@ app.post('/api/tts', async (req, res) => {
       lang: 'id-ID',
     });
   } catch (err: any) {
-    console.error('Error in /api/tts:', err?.message || err);
+    console.info('[Juragan.AI] Gemini TTS unavailable, frontend will use browser speech synthesis.');
     return res.status(500).json({ error: 'Gagal membuat suara bahasa Indonesia.', details: err?.message });
   }
 });

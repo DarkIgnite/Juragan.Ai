@@ -10,6 +10,7 @@ import {
   Package,
   StopCircle,
   Radio,
+  ExternalLink,
 } from 'lucide-react';
 import { Product, SaleTransaction, UserAccount, VoiceConsultationMessage } from '../types';
 
@@ -276,6 +277,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
+  const [noSpeechNotice, setNoSpeechNotice] = useState<boolean>(false);
+  const [speechNetworkNotice, setSpeechNetworkNotice] = useState<boolean>(false);
 
   // Check STT browser support (Web Speech API or universal MediaDevices + Audio API)
   useEffect(() => {
@@ -560,8 +563,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       return { fullText: '', finalTranscript: '', interimTranscript: '' };
     }
 
-    const finalParts: string[] = [];
-    const interimParts: string[] = [];
+    let finalAcc = '';
+    let interimAcc = '';
 
     for (let i = 0; i < results.length; i++) {
       const res = results[i];
@@ -570,29 +573,16 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       if (!text) continue;
 
       if (res.isFinal) {
-        finalParts.push(text);
+        finalAcc = finalAcc ? `${finalAcc} ${text}` : text;
       } else {
-        interimParts.push(text);
+        interimAcc = interimAcc ? `${interimAcc} ${text}` : text;
       }
     }
 
-    const finalAcc = finalParts.join(' ').trim();
-    const interimAcc = interimParts.join(' ').trim();
-
-    // In Android Chrome, interim results may be cumulative (already containing all previous speech)
-    let combined = finalAcc;
-    if (interimAcc) {
-      if (!combined) {
-        combined = interimAcc;
-      } else if (interimAcc.toLowerCase().startsWith(combined.toLowerCase())) {
-        combined = interimAcc;
-      } else if (!combined.toLowerCase().includes(interimAcc.toLowerCase())) {
-        combined = `${combined} ${interimAcc}`;
-      }
-    }
+    const fullText = (finalAcc + (interimAcc ? (finalAcc ? ' ' : '') + interimAcc : '')).trim();
 
     return {
-      fullText: combined.trim(),
+      fullText,
       finalTranscript: finalAcc,
       interimTranscript: interimAcc,
     };
@@ -627,8 +617,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       if (!res.ok) return '';
       const data = await res.json();
       return (data.text || '').trim();
-    } catch (err) {
-      console.warn('transcribeAudioBuffer error:', err);
+    } catch {
       return '';
     }
   };
@@ -650,26 +639,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognition.onstart = () => {
         setIsListening(true);
         setMicPermissionDenied(false);
+        setNoSpeechNotice(false);
+        setSpeechNetworkNotice(false);
       };
 
       recognition.onresult = (event: any) => {
         const { fullText, interimTranscript } = extractCleanTranscript(event.results);
-
-        // Merge with any preserved accumulated text from earlier recognition restarts
-        let words = fullText;
-        if (accumulatedFinalTranscriptRef.current) {
-          const prefix = accumulatedFinalTranscriptRef.current.trim();
-          if (!words) {
-            words = prefix;
-          } else if (
-            !words.toLowerCase().startsWith(prefix.toLowerCase()) &&
-            !prefix.toLowerCase().includes(words.toLowerCase())
-          ) {
-            words = `${prefix} ${words}`;
-          }
-        }
+        const words = (fullText || interimTranscript).trim();
 
         if (words) {
+          setNoSpeechNotice(false);
+          setSpeechNetworkNotice(false);
           setInputText(words);
           currentLiveInputRef.current = words;
           setTranscript(words);
@@ -686,20 +666,19 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Generous silence timeout (3.5s) to allow natural pauses in speech
+          // Snappy 1.5s silence timeout to auto-submit after natural user pause
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
-              if (textToSend && textToSend.length > 2) {
+              if (textToSend && textToSend.length > 1) {
                 stopListening(true);
               }
             }
-          }, 3500);
+          }, 1500);
         }
       };
 
       recognition.onspeechend = () => {
-        // When user pauses, give a comfortable 3.5s window before submitting
         const textToSend = currentLiveInputRef.current.trim();
         if (textToSend && isListeningDesiredRef.current) {
           if (silenceTimerRef.current) {
@@ -708,59 +687,37 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const toSend = currentLiveInputRef.current.trim();
-              if (toSend && toSend.length > 2) {
+              if (toSend && toSend.length > 1) {
                 stopListening(true);
               }
             }
-          }, 3500);
+          }, 1000);
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.warn('Speech recognition status:', event.error);
         if (event.error === 'no-speech' || event.error === 'aborted') {
           return;
         }
 
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          if (!mediaStreamRef.current?.active) {
-            isListeningDesiredRef.current = false;
-            setIsListening(false);
-            setMicPermissionDenied(true);
-          }
+          isListeningDesiredRef.current = false;
+          setIsListening(false);
+          setMicPermissionDenied(true);
+          return;
+        }
+
+        if (event.error === 'network' || event.error === 'audio-capture') {
+          console.warn('[SpeechRecognition] network/capture notice:', event.error);
+          setSpeechNetworkNotice(true);
         }
       };
 
       recognition.onend = () => {
-        // If listening is still desired by user, seamlessly restart without dropping words!
         if (isListeningDesiredRef.current) {
-          const currentWords = currentLiveInputRef.current.trim();
-          if (currentWords) {
-            accumulatedFinalTranscriptRef.current = currentWords;
-          }
-
-          setTimeout(() => {
-            if (isListeningDesiredRef.current) {
-              try {
-                if (recognitionRef.current) {
-                  recognitionRef.current.onstart = null;
-                  recognitionRef.current.onresult = null;
-                  recognitionRef.current.onspeechend = null;
-                  recognitionRef.current.onerror = null;
-                  recognitionRef.current.onend = null;
-                  try {
-                    recognitionRef.current.abort();
-                  } catch {}
-                  recognitionRef.current = null;
-                }
-                const fresh = createSpeechRecognitionInstance();
-                recognitionRef.current = fresh;
-                fresh?.start();
-              } catch (e) {
-                console.warn('Recognition restart error:', e);
-              }
-            }
-          }, 60);
+          try {
+            recognition.start();
+          } catch {}
         } else {
           setIsListening(false);
         }
@@ -773,7 +730,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   }, []);
 
   // Set up microphone stream and MediaRecorder asynchronously without blocking Web Speech API
-  const initMicrophoneAndRecorder = async (isWebSpeechActive: boolean) => {
+  const initMicrophoneAndRecorder = async () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       return;
     }
@@ -792,13 +749,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           mediaStreamRef.current = stream;
           setMicPermissionDenied(false);
         } catch (mediaErr: any) {
-          console.warn('Microphone getUserMedia warning:', mediaErr);
           if (mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError') {
-            if (!isWebSpeechActive) {
-              setMicPermissionDenied(true);
-              setIsListening(false);
-              isListeningDesiredRef.current = false;
-            }
+            setMicPermissionDenied(true);
+            setIsListening(false);
+            isListeningDesiredRef.current = false;
             return;
           }
         }
@@ -827,12 +781,13 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             await audioContextRef.current.resume();
           }
         }
-      } catch (e) {
-        console.warn('AudioContext setup warning:', e);
+      } catch {
+        // AudioContext setup warning
       }
 
-      // MediaRecorder for fallback transcription
-      if (typeof MediaRecorder !== 'undefined') {
+      // Only start MediaRecorder as an alternative if SpeechRecognition is NOT available in the browser
+      const hasNativeSpeech = !!((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+      if (!hasNativeSpeech && typeof MediaRecorder !== 'undefined') {
         try {
           if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
             try {
@@ -859,12 +814,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           };
 
           rec.start(250);
-        } catch (e) {
-          console.warn('MediaRecorder error:', e);
+        } catch {
+          // MediaRecorder start warning
         }
       }
-    } catch (err) {
-      console.warn('initMicrophoneAndRecorder error:', err);
+    } catch {
+      // initMicrophoneAndRecorder warning
     }
   };
 
@@ -873,6 +828,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       stopSpeaking();
     }
 
+    setNoSpeechNotice(false);
+    setSpeechNetworkNotice(false);
     setTranscript('');
     setInterimTranscript('');
     setInputText('');
@@ -901,21 +858,18 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
 
     // Step 2: START SPEECH RECOGNITION IMMEDIATELY & SYNCHRONOUSLY!
-    // No async delay! The very first word spoken by the user is caught right away!
-    let webSpeechStarted = false;
     try {
       const freshRecognition = createSpeechRecognitionInstance();
       recognitionRef.current = freshRecognition;
       if (freshRecognition) {
         freshRecognition.start();
-        webSpeechStarted = true;
       }
-    } catch (err) {
-      console.warn('Recognition start exception:', err);
+    } catch {
+      // Recognition start exception handled gracefully
     }
 
-    // Step 3: Initialize media stream for live audio analysis & fallback recording asynchronously
-    initMicrophoneAndRecorder(webSpeechStarted);
+    // Step 3: Initialize media stream for live audio analysis & waveform
+    initMicrophoneAndRecorder();
   };
 
   const stopListening = async (shouldAutoSubmit: boolean = false) => {
@@ -960,8 +914,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           }
         });
         recordedBlob = await stopPromise;
-      } catch (e) {
-        console.warn('MediaRecorder stop error:', e);
+      } catch {
+        // MediaRecorder stop handled
       }
     }
 
@@ -998,17 +952,20 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           currentLiveInputRef.current = transcribedText;
           setTranscript(transcribedText);
         }
-      } catch (err) {
-        console.warn('Fallback audio transcription error:', err);
+      } catch {
         setIsTranscribingAudio(false);
       }
     }
 
     // Submit query if requested and text exists
     if (textToSend && textToSend.length > 1) {
+      setNoSpeechNotice(false);
       if (shouldAutoSubmit) {
         handleSendQueryRef.current(textToSend);
       }
+    } else if (shouldAutoSubmit) {
+      setNoSpeechNotice(true);
+      setTimeout(() => setNoSpeechNotice(false), 5000);
     }
   };
 
@@ -1316,6 +1273,16 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 </button>
 
+                <a
+                  href={typeof window !== 'undefined' ? window.location.href : '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Buka di Tab Baru (Untuk Izin Mikrofon Penuh Browser)"
+                  className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+
                 <button
                   onClick={handleClose}
                   className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
@@ -1450,13 +1417,40 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     <span>Menyalin suara Anda ke teks (Gemini AI)...</span>
                   </div>
                 ) : micPermissionDenied ? (
-                  <div className="flex flex-col items-center gap-1 px-4 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs">
+                  <div className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs max-w-md">
                     <span className="flex items-center gap-1.5 text-amber-800 font-bold">
-                      <span>⚠️ Akses mikrofon diblokir oleh browser</span>
+                      <span>⚠️ Akses mikrofon terhalang izin browser</span>
                     </span>
                     <span className="text-[11px] text-amber-700 font-normal">
-                      Klik ikon gembok / izin mikrofon di bilah alamat browser untuk mengaktifkan suara.
+                      Buka aplikasi di tab baru agar browser mengizinkan mikrofon secara penuh:
                     </span>
+                    <a
+                      href={typeof window !== 'undefined' ? window.location.href : '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Buka di Tab Baru (Akses Mikrofon Penuh)</span>
+                    </a>
+                  </div>
+                ) : speechNetworkNotice ? (
+                  <div className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs max-w-md">
+                    <span className="flex items-center gap-1.5 text-amber-800 font-bold">
+                      <span>⚠️ Layanan suara terhalang di dalam pratinjau (iframe)</span>
+                    </span>
+                    <span className="text-[11px] text-amber-700 font-normal text-center">
+                      Buka di tab baru agar browser memproses suara Anda langsung menjadi teks secara instan, atau klik salah satu tombol Tanya Cepat di bawah:
+                    </span>
+                    <a
+                      href={typeof window !== 'undefined' ? window.location.href : '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-1 flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Buka di Tab Baru Sekarang</span>
+                    </a>
                   </div>
                 ) : !isSTTSupported ? (
                   <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium shadow-xs">
@@ -1477,10 +1471,10 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   <div className="flex flex-col items-center gap-1.5">
                     <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs">
                       <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                      <span>Mikrofon Aktif — Kata terdeteksi otomatis</span>
+                      <span>Mikrofon Aktif — Bicara sekarang...</span>
                     </div>
                     <span className="text-[11px] text-zinc-500 font-medium">
-                      Otomatis kirim saat hening, atau klik tombol mic/bulatan untuk kirim
+                      Otomatis kirim saat hening sejenak, atau klik tombol Kirim Sekarang
                     </span>
 
                     {inputText && (
@@ -1504,6 +1498,16 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
                     <span>Menghubungkan & merangkai jawaban real-time...</span>
                   </div>
+                ) : noSpeechNotice ? (
+                  <div className="flex flex-col items-center gap-1.5">
+                    <button
+                      onClick={startListening}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs transition-all active:scale-98"
+                    >
+                      <Mic className="w-3.5 h-3.5 text-amber-600 animate-bounce" />
+                      <span>Suara belum tertangkap jelas. Ketuk untuk coba bicara lagi</span>
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={startListening}
@@ -1513,6 +1517,31 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     <span>Ketuk bulatan atau tombol mic untuk mulai bicara</span>
                   </button>
                 )}
+              </div>
+
+              {/* Quick 1-tap voice question chips */}
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 max-w-lg z-10">
+                <span className="text-[10px] text-zinc-500 font-semibold mr-1">Tanya Cepat:</span>
+                {[
+                  'Berapa sisa stok paling sedikit?',
+                  'Produk apa yang paling laris?',
+                  'Berapa total omzet toko?',
+                  'Saran promo minggu ini',
+                ].map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => {
+                      if (isSpeaking) stopSpeaking();
+                      if (isListening) stopListening();
+                      handleSendQuery(chip);
+                    }}
+                    disabled={isLoading}
+                    className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 hover:bg-emerald-50 border border-zinc-200 hover:border-emerald-300 text-zinc-700 hover:text-emerald-800 transition-all active:scale-95 shadow-2xs flex items-center gap-1 font-medium disabled:opacity-50"
+                  >
+                    <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
+                    <span>{chip}</span>
+                  </button>
+                ))}
               </div>
 
               {/* Live speech preview */}
