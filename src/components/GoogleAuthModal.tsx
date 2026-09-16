@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, ShieldCheck, ArrowRight, User, AlertCircle, Sparkles, LogOut, Flame } from 'lucide-react';
+import { X, Check, ShieldCheck, User, AlertCircle, Sparkles, LogOut, Flame } from 'lucide-react';
 import { UserAccount } from '../types';
 import { loginWithGoogleFirebase, logoutFirebase } from '../lib/firebase';
 
@@ -50,16 +50,6 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
       }
       setIsProcessing(false);
     }
-  };
-
-  // Quick sync fallback for sandboxed iframe
-  const handleQuickSync = (email: string) => {
-    setIsProcessing(true);
-    setTimeout(() => {
-      onLinkGoogle(email, currentUser.name, undefined, 'fb-uid-' + Date.now());
-      setIsProcessing(false);
-      onClose();
-    }, 300);
   };
 
   const handleDisconnect = async () => {
@@ -240,29 +230,6 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                       </div>
                     </div>
                   )}
-
-                  <div className="relative flex items-center justify-center my-2">
-                    <div className="border-t border-zinc-200 dark:border-zinc-800 w-full" />
-                    <span className="bg-white dark:bg-zinc-900 px-2.5 text-[11px] font-medium text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
-                      atau
-                    </span>
-                  </div>
-
-                  {/* 1-Click Fast Connect */}
-                  <button
-                    type="button"
-                    onClick={() => handleQuickSync('ryanfadhila18@gmail.com')}
-                    disabled={isProcessing}
-                    className="w-full py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:border dark:border-zinc-700 text-white font-semibold text-xs transition-all shadow-xs flex items-center justify-between group active:scale-[0.99] disabled:opacity-50"
-                  >
-                    <div className="flex items-center gap-2 truncate">
-                      <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">
-                        G
-                      </div>
-                      <span className="truncate">Hubungkan Cepat: ryanfadhila18@gmail.com</span>
-                    </div>
-                    <ArrowRight className="w-3.5 h-3.5 text-zinc-300 group-hover:translate-x-0.5 transition-transform shrink-0" />
-                  </button>
 
                   <div className="pt-2 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
                     <div className="flex items-center gap-1">

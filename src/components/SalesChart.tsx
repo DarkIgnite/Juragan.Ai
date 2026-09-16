@@ -44,19 +44,22 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
     };
   });
 
-  const maxOmzet = Math.max(...dailyData.map((d) => d.totalOmzet), 100000);
+  // Add breathing room above highest sales point so peak data dots and tooltips never touch the border
+  const rawMax = Math.max(...dailyData.map((d) => d.totalOmzet), 100000);
+  const maxOmzet = Math.ceil((rawMax * 1.15) / 50000) * 50000;
 
-  // Chart coordinate math
-  const chartHeight = 180;
+  // Chart coordinate math with safe top & bottom margins
+  const chartHeight = 185;
   const chartWidth = 560;
-  const paddingX = 40;
-  const paddingY = 25;
+  const paddingX = 42;
+  const paddingTop = 32;
+  const paddingBottom = 26;
   const innerWidth = chartWidth - paddingX * 2;
-  const innerHeight = chartHeight - paddingY * 2;
+  const innerHeight = chartHeight - paddingTop - paddingBottom;
 
   const points = dailyData.map((d, i) => {
     const x = paddingX + (i / (dailyData.length - 1)) * innerWidth;
-    const y = chartHeight - paddingY - (d.totalOmzet / maxOmzet) * innerHeight;
+    const y = chartHeight - paddingBottom - (d.totalOmzet / maxOmzet) * innerHeight;
     return { ...d, x, y };
   });
 
@@ -70,7 +73,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
     return `${acc} C ${cx1},${cy1} ${cx2},${cy2} ${p.x},${p.y}`;
   }, '');
 
-  const areaD = `${pathD} L ${points[points.length - 1].x},${chartHeight - paddingY} L ${points[0].x},${chartHeight - paddingY} Z`;
+  const areaD = `${pathD} L ${points[points.length - 1].x},${chartHeight - paddingBottom} L ${points[0].x},${chartHeight - paddingBottom} Z`;
 
   // Top products calculation
   const productSalesMap = products
@@ -185,7 +188,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
         </div>
 
         {/* SVG Chart Container with Glitch-Free Continuous Hover */}
-        <div className="relative w-full overflow-hidden select-none">
+        <div className="relative w-full select-none pt-1">
           <svg
             ref={svgRef}
             viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -202,7 +205,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
 
             {/* Grid Lines */}
             {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-              const y = chartHeight - paddingY - ratio * innerHeight;
+              const y = chartHeight - paddingBottom - ratio * innerHeight;
               return (
                 <g key={ratio}>
                   <line
@@ -243,9 +246,9 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
             {activePoint && (
               <line
                 x1={activePoint.x}
-                y1={paddingY}
+                y1={paddingTop}
                 x2={activePoint.x}
-                y2={chartHeight - paddingY}
+                y2={chartHeight - paddingBottom}
                 stroke="#10b981"
                 strokeWidth="1.5"
                 strokeDasharray="4 3"
@@ -294,29 +297,49 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
             })}
           </svg>
 
-          {/* Glitch-Free Fixed / Clamped Tooltip */}
-          {activePoint && (
-            <div
-              className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-full px-3 py-2 bg-zinc-900/95 dark:bg-zinc-800/95 backdrop-blur-xs text-white rounded-xl shadow-xl text-xs border border-zinc-800 dark:border-zinc-700 transition-all duration-75"
-              style={{
-                left: `${(activePoint.x / chartWidth) * 100}%`,
-                top: `${Math.max(16, (activePoint.y / chartHeight) * 100 - 8)}%`,
-              }}
-            >
-              <div className="font-medium text-zinc-300 text-[10px]">
-                {formatDateIndo(activePoint.date)}
+          {/* Smart Edge-Clamped & Flipped Tooltip (Never Clipped by Borders) */}
+          {activePoint && (() => {
+            const isNearTop = (activePoint.y / chartHeight) < 0.40;
+            const isNearLeft = (activePoint.x / chartWidth) < 0.22;
+            const isNearRight = (activePoint.x / chartWidth) > 0.78;
+
+            const horizontalTransform = isNearLeft
+              ? 'translate-x-0'
+              : isNearRight
+              ? '-translate-x-full'
+              : '-translate-x-1/2';
+
+            const verticalTransform = isNearTop
+              ? 'translate-y-3.5'
+              : '-translate-y-full -mt-2.5';
+
+            return (
+              <div
+                className={`absolute z-30 pointer-events-none px-3 py-2 bg-zinc-900/95 dark:bg-zinc-800/95 backdrop-blur-xs text-white rounded-xl shadow-xl text-xs border border-zinc-800 dark:border-zinc-700 transition-all duration-75 whitespace-nowrap ${horizontalTransform} ${verticalTransform}`}
+                style={{
+                  left: isNearLeft
+                    ? `${Math.max(2, (activePoint.x / chartWidth) * 100 - 2)}%`
+                    : isNearRight
+                    ? `${Math.min(98, (activePoint.x / chartWidth) * 100 + 2)}%`
+                    : `${(activePoint.x / chartWidth) * 100}%`,
+                  top: `${(activePoint.y / chartHeight) * 100}%`,
+                }}
+              >
+                <div className="font-medium text-zinc-300 text-[10px]">
+                  {formatDateIndo(activePoint.date)}
+                </div>
+                <div className="text-emerald-400 font-bold text-sm leading-tight">
+                  {formatRupiah(activePoint.totalOmzet)}
+                </div>
+                <div className="text-[10px] text-zinc-400 flex items-center justify-between gap-3 mt-0.5">
+                  <span>{activePoint.count} Transaksi</span>
+                  <span className="text-emerald-300 font-medium">
+                    Laba: +{formatRupiah(activePoint.totalProfit)}
+                  </span>
+                </div>
               </div>
-              <div className="text-emerald-400 font-bold text-sm">
-                {formatRupiah(activePoint.totalOmzet)}
-              </div>
-              <div className="text-[10px] text-zinc-400 flex items-center justify-between gap-3 mt-0.5">
-                <span>{activePoint.count} Transaksi</span>
-                <span className="text-emerald-300">
-                  Laba: +{formatRupiah(activePoint.totalProfit)}
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </div>
 
