@@ -44,6 +44,7 @@ export interface SaleTransaction {
   date: string; // YYYY-MM-DD
   paymentMethod: 'QRIS' | 'Tunai' | 'Transfer Bank' | 'Marketplace';
   customerName?: string;
+  customerPhone?: string;
   notes?: string;
 }
 

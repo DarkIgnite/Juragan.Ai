@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { SaleTransaction } from '../types';
+import { SaleTransaction, UserAccount, Product } from '../types';
 import { formatRupiah, formatDateIndo } from '../utils/formatters';
+import { FinancialReportModal } from './FinancialReportModal';
 import {
   ReceiptText,
   Plus,
@@ -14,20 +15,60 @@ import {
   TrendingUp,
   LayoutList,
   Table as TableIcon,
+  FileSpreadsheet,
+  Send,
 } from 'lucide-react';
 
 interface TransactionHistoryViewProps {
   transactions: SaleTransaction[];
+  products?: Product[];
+  currentUser?: UserAccount;
   onOpenAddSale: () => void;
 }
 
 export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
   transactions,
+  products = [],
+  currentUser,
   onOpenAddSale,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMethod, setSelectedMethod] = useState('Semua');
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+
+  const handleSendWhatsAppReceipt = (t: SaleTransaction) => {
+    const storeName = currentUser?.storeName || 'Juragan UMKM';
+    const message = [
+      `🧾 *NOTA DIGITAL - ${storeName.toUpperCase()}*`,
+      `📅 Tanggal: ${formatDateIndo(t.date)}`,
+      t.customerName ? `👤 Pelanggan: ${t.customerName}` : null,
+      `----------------------------------------`,
+      `*${t.quantity}x ${t.productName}*`,
+      `Total: *${formatRupiah(t.totalPrice)}*`,
+      `Metode: *${t.paymentMethod}* (LUNAS)`,
+      t.notes ? `Catatan: "${t.notes}"` : null,
+      `----------------------------------------`,
+      `Terima kasih telah berbelanja di *${storeName}*! 🙏`,
+      `_Dikelola dengan Juragan.AI (Asisten Bisnis Digital)_`,
+    ]
+      .filter(Boolean)
+      .join('\n');
+
+    const cleanPhone = t.customerPhone?.replace(/[^0-9]/g, '') || '';
+    const waPhone = cleanPhone.startsWith('0')
+      ? '62' + cleanPhone.slice(1)
+      : cleanPhone.startsWith('62')
+      ? cleanPhone
+      : cleanPhone;
+
+    const encodedMsg = encodeURIComponent(message);
+    const waUrl = waPhone
+      ? `https://api.whatsapp.com/send?phone=${waPhone}&text=${encodedMsg}`
+      : `https://api.whatsapp.com/send?text=${encodedMsg}`;
+
+    window.open(waUrl, '_blank');
+  };
 
   const filtered = transactions.filter((t) => {
     const matchesQuery =
@@ -89,7 +130,7 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {/* View toggle */}
           <div className="hidden sm:flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200/70 dark:border-zinc-700">
             <button
@@ -111,6 +152,16 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
               <TableIcon className="w-4 h-4" />
             </button>
           </div>
+
+          <button
+            id="btn-open-sak-emkm-report"
+            onClick={() => setIsReportModalOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-white hover:bg-zinc-50 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-emerald-700 dark:text-emerald-400 border border-emerald-200/90 dark:border-emerald-800/80 shadow-xs cursor-pointer active:scale-[0.98] transition-all"
+            title="Laporan Keuangan Standar SAK EMKM siap cetak/PDF untuk KUR Bank & Dinkop"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+            <span>Laporan SAK EMKM</span>
+          </button>
 
           <button
             id="btn-add-sale-header"
@@ -255,13 +306,23 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
               </div>
 
               {/* Right Price & Profit */}
-              <div className="sm:text-right border-t sm:border-t-0 pt-2 sm:pt-0 border-zinc-100 dark:border-zinc-800 flex sm:flex-col items-baseline sm:items-end justify-between">
-                <div className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-mono">
-                  {formatRupiah(t.totalPrice)}
+              <div className="sm:text-right border-t sm:border-t-0 pt-2.5 sm:pt-0 border-zinc-100 dark:border-zinc-800 flex sm:flex-col items-center sm:items-end justify-between gap-2">
+                <div>
+                  <div className="text-base font-bold text-zinc-900 dark:text-zinc-100 font-mono">
+                    {formatRupiah(t.totalPrice)}
+                  </div>
+                  <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
+                    +{formatRupiah(t.profit)} laba
+                  </div>
                 </div>
-                <div className="text-xs font-semibold text-emerald-600 dark:text-emerald-400 font-mono">
-                  +{formatRupiah(t.profit)} laba
-                </div>
+                <button
+                  onClick={() => handleSendWhatsAppReceipt(t)}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 transition-all cursor-pointer active:scale-95 shadow-2xs"
+                  title="Kirim Struk Digital via WhatsApp ke Pelanggan"
+                >
+                  <Send className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Struk WA</span>
+                </button>
               </div>
             </div>
           ))}
@@ -279,6 +340,7 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
                   <th className="px-3 py-3">Total Omzet</th>
                   <th className="px-3 py-3">Laba Bersih</th>
                   <th className="px-4 py-3">Pelanggan</th>
+                  <th className="px-4 py-3 text-right">Aksi</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800 text-xs text-zinc-700 dark:text-zinc-300">
@@ -304,12 +366,47 @@ export const TransactionHistoryView: React.FC<TransactionHistoryViewProps> = ({
                     <td className="px-4 py-3 text-zinc-600 dark:text-zinc-400">
                       {t.customerName || '-'}
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => handleSendWhatsAppReceipt(t)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 border border-emerald-200/80 dark:border-emerald-800 transition-all cursor-pointer active:scale-95"
+                        title="Kirim Struk Digital via WhatsApp"
+                      >
+                        <Send className="w-2.5 h-2.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Struk WA</span>
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+      )}
+
+      {/* SAK EMKM Financial Report Modal */}
+      {isReportModalOpen && (
+        <FinancialReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          currentUser={
+            currentUser || {
+              id: 'guest',
+              name: 'Juragan UMKM',
+              email: 'juragan@example.com',
+              role: 'juragan',
+              storeName: 'Toko Juragan',
+              category: 'Kuliner',
+              city: 'Banjarmasin',
+              whatsapp: '',
+              avatarColor: 'from-blue-500 to-emerald-500',
+              joinedDate: '2024-01-01',
+              status: 'active',
+            }
+          }
+          transactions={transactions}
+          products={products}
+        />
       )}
     </div>
   );

@@ -385,6 +385,8 @@ export default function App() {
             {activeTab === 'transactions' && (
               <TransactionHistoryView
                 transactions={userTransactions}
+                products={userProducts}
+                currentUser={currentUser}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
               />
             )}
@@ -433,6 +435,7 @@ export default function App() {
         isOpen={isSaleModalOpen}
         onClose={() => setIsSaleModalOpen(false)}
         userId={currentUser.id}
+        storeName={currentUser.storeName}
         products={userProducts}
         onSaveTransaction={handleSaveTransaction}
       />
