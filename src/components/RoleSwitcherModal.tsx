@@ -41,21 +41,21 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({
             animate={{ opacity: 1, transform: 'scale(1) translateY(0px)' }}
             exit={{ opacity: 0, transform: 'scale(0.96) translateY(8px)' }}
             transition={{ duration: 0.22, ease: easeOutCurve }}
-            className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden"
+            className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
           >
             {/* Modal Header */}
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-semibold text-zinc-900">
+                <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
                   Ganti Akun &amp; Role Sistem
                 </h3>
-                <p className="text-xs text-zinc-700">
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
                   Pilih peran pengguna untuk menguji hak akses (RBAC) dan fitur aplikasi.
                 </p>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-700 hover:bg-zinc-100 transition-colors tactile-btn"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-700 dark:hover:text-zinc-200 transition-colors tactile-btn"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -75,10 +75,10 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({
                       onSelectUser(user);
                       onClose();
                     }}
-                    className={`group relative p-4 rounded-xl border cursor-pointer text-left flex items-start gap-4 tactile-btn ${
+                    className={`group relative p-4 rounded-xl border cursor-pointer text-left flex items-start gap-4 tactile-btn transition-colors ${
                       isSelected
-                        ? 'border-emerald-600 bg-emerald-50/50 ring-2 ring-emerald-500/20'
-                        : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50/80 bg-white'
+                        ? 'border-emerald-600 dark:border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/30 ring-2 ring-emerald-500/20'
+                        : 'border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 hover:bg-zinc-50/80 dark:hover:bg-zinc-800/60 bg-white dark:bg-zinc-900/60'
                     }`}
                   >
                     {/* Avatar Icon */}
@@ -91,25 +91,25 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({
                     {/* Account Details */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="font-semibold text-sm text-zinc-900 truncate">
+                        <span className="font-semibold text-sm text-zinc-900 dark:text-zinc-100 truncate">
                           {user.name}
                         </span>
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
                             isAdmin
-                              ? 'bg-indigo-100 text-indigo-800'
-                              : 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-indigo-100 dark:bg-indigo-950/70 text-indigo-800 dark:text-indigo-300'
+                              : 'bg-emerald-100 dark:bg-emerald-950/70 text-emerald-800 dark:text-emerald-300'
                           }`}
                         >
                           {isAdmin ? 'Role: Admin' : 'Role: Juragan UMKM'}
                         </span>
                       </div>
 
-                      <div className="text-xs text-zinc-700 mt-1 font-medium">
+                      <div className="text-xs text-zinc-700 dark:text-zinc-300 mt-1 font-medium">
                         {isAdmin ? 'Panel Pengawas & Analitik Seluruh Platform' : user.storeName}
                       </div>
 
-                      <p className="text-[11px] text-zinc-700 mt-1">
+                      <p className="text-[11px] text-zinc-500 dark:text-zinc-400 mt-1">
                         {isAdmin
                           ? 'Fitur: Monitoring penggunaan AI platform, audit log aktivitas, statistik agregat UMKM, kelola akun.'
                           : `Sektor: ${user.category} • Lokasi: ${user.city} • Akses: AI Advisor, AI Konten, Analitik Toko.`}
@@ -118,7 +118,7 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({
 
                     {/* Selection Checkmark */}
                     {isSelected && (
-                      <div className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center shrink-0 mt-0.5">
+                      <div className="w-5 h-5 rounded-full bg-emerald-600 dark:bg-emerald-500 text-white flex items-center justify-center shrink-0 mt-0.5">
                         <Check className="w-3 h-3" />
                       </div>
                     )}
@@ -128,14 +128,14 @@ export const RoleSwitcherModal: React.FC<RoleSwitcherModalProps> = ({
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-3.5 bg-zinc-50 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-700">
+            <div className="px-6 py-3.5 bg-zinc-50 dark:bg-zinc-950/80 border-t border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
               <span className="flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 Data simulasi tersinkronisasi otomatis
               </span>
               <button
                 onClick={onClose}
-                className="px-4 py-2 rounded-lg font-medium text-zinc-700 hover:text-zinc-900 hover:bg-zinc-200/60 transition-colors tactile-btn"
+                className="px-4 py-2 rounded-lg font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors tactile-btn"
               >
                 Tutup
               </button>

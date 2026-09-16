@@ -180,24 +180,24 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.22, ease: easeOutCurve }}
-            className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden my-6"
+            className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden my-6"
           >
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs ${
                     isEditing
-                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                      ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                      : 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
                   }`}
                 >
                   {isEditing ? <Pencil className="w-4 h-4" /> : <PackagePlus className="w-4 h-4" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-zinc-900">
+                  <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
                     {isEditing ? 'Edit Produk' : 'Tambah Produk Baru'}
                   </h3>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     {isEditing
                       ? 'Perbarui foto, nama, harga jual, HPP, atau stok toko Anda.'
                       : 'Input katalog, foto produk, harga jual, dan stok aman.'}
@@ -207,7 +207,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
 
               <button
                 onClick={onClose}
-                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors"
+                className="p-1 rounded-lg text-zinc-400 dark:text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -215,7 +215,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
 
             <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
               {error && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 shrink-0" />
                   <span>{error}</span>
                 </div>
@@ -223,7 +223,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
 
               {/* Product Name */}
               <div>
-                <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                   Nama Produk
                 </label>
                 <input
@@ -232,22 +232,22 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                   placeholder="Contoh: Sambal Bawang Super Pedas 200g"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
                 />
               </div>
 
               {/* Product Image Section */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
-                    <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
+                  <label className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                    <ImageIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     Foto Produk
                   </label>
                   {imageUrl && (
                     <button
                       type="button"
                       onClick={() => setImageUrl('')}
-                      className="text-[11px] text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
+                      className="text-[11px] text-rose-600 dark:text-rose-400 hover:underline flex items-center gap-1 cursor-pointer"
                     >
                       <Trash2 className="w-3 h-3" />
                       <span>Hapus Foto</span>
@@ -256,8 +256,8 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                 </div>
 
                 {/* Current Image Preview & Source Switcher */}
-                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
-                  <div className="w-14 h-14 rounded-xl bg-white border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center relative">
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800">
+                  <div className="w-14 h-14 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 overflow-hidden shrink-0 flex items-center justify-center relative">
                     {imageUrl ? (
                       <img
                         src={imageUrl}
@@ -266,15 +266,15 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                         referrerPolicy="no-referrer"
                       />
                     ) : (
-                      <ImageIcon className="w-6 h-6 text-zinc-300" />
+                      <ImageIcon className="w-6 h-6 text-zinc-300 dark:text-zinc-600" />
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <div className="text-xs font-semibold text-zinc-900 truncate">
+                    <div className="text-xs font-semibold text-zinc-900 dark:text-zinc-100 truncate">
                       {imageUrl ? 'Foto Terpasang' : 'Belum Ada Foto'}
                     </div>
-                    <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate">
+                    <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
                       Pilih dari preset, upload dari galeri HP, atau link URL
                     </p>
 
@@ -286,7 +286,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                         className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
                           imageInputMode === 'preset'
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                            : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700'
                         }`}
                       >
                         Preset
@@ -300,7 +300,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                         className={`px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
                           imageInputMode === 'upload'
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                            : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700'
                         }`}
                       >
                         <Upload className="w-2.5 h-2.5" />
@@ -312,7 +312,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                         className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
                           imageInputMode === 'url'
                             ? 'bg-emerald-600 text-white'
-                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                            : 'bg-zinc-200/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-300 dark:hover:bg-zinc-700'
                         }`}
                       >
                         Link URL
@@ -342,17 +342,17 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                           onClick={() => setImageUrl(p.url)}
                           className={`flex items-center gap-2 p-1.5 rounded-xl border text-left transition-all cursor-pointer ${
                             isSelected
-                              ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20'
-                              : 'border-zinc-200 hover:border-zinc-300'
+                              ? 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/40 ring-2 ring-emerald-500/20'
+                              : 'border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600'
                           }`}
                         >
                           <img
                             src={p.url}
                             alt={p.name}
-                            className="w-8 h-8 rounded-lg object-cover ring-1 ring-zinc-200 shrink-0"
+                            className="w-8 h-8 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700 shrink-0"
                             referrerPolicy="no-referrer"
                           />
-                          <span className="text-[10px] font-medium text-zinc-800 truncate">
+                          <span className="text-[10px] font-medium text-zinc-800 dark:text-zinc-200 truncate">
                             {p.name}
                           </span>
                         </button>
@@ -364,13 +364,13 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                 {imageInputMode === 'upload' && (
                   <div
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-3 sm:p-4 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50/70 cursor-pointer text-center transition-colors flex flex-col items-center justify-center gap-1.5"
+                    className="p-3 sm:p-4 rounded-xl border-2 border-dashed border-emerald-300 dark:border-emerald-800 bg-emerald-50/40 dark:bg-emerald-950/30 hover:bg-emerald-50/70 dark:hover:bg-emerald-950/50 cursor-pointer text-center transition-colors flex flex-col items-center justify-center gap-1.5"
                   >
-                    <Upload className="w-5 h-5 text-emerald-600" />
-                    <span className="text-xs font-bold text-emerald-800">
+                    <Upload className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-bold text-emerald-800 dark:text-emerald-300">
                       Klik untuk Pilih Foto dari Galeri / Kamera HP
                     </span>
-                    <span className="text-[10px] text-zinc-500">
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       Mendukung format JPG, PNG, WEBP (Maksimal 5MB)
                     </span>
                   </div>
@@ -382,7 +382,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                     placeholder="Masukkan URL foto (https://...)"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   />
                 )}
               </div>
@@ -390,17 +390,17 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
               {/* Category and Unit */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Kategori
                   </label>
                   <select
                     id="select-product-category"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 cursor-pointer"
                   >
                     {CATEGORIES.map((c) => (
-                      <option key={c} value={c}>
+                      <option key={c} value={c} className="dark:bg-zinc-900 dark:text-zinc-100">
                         {c}
                       </option>
                     ))}
@@ -408,17 +408,17 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Satuan Jual
                   </label>
                   <select
                     id="select-product-unit"
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 cursor-pointer"
                   >
                     {UNITS.map((u) => (
-                      <option key={u} value={u}>
+                      <option key={u} value={u} className="dark:bg-zinc-900 dark:text-zinc-100">
                         {u}
                       </option>
                     ))}
@@ -429,11 +429,11 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
               {/* Cost Price & Selling Price */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Harga Pokok / Modal (HPP)
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs text-zinc-400">Rp</span>
+                    <span className="absolute left-3 top-2 text-xs text-zinc-400 dark:text-zinc-500">Rp</span>
                     <input
                       id="input-product-cost"
                       type="number"
@@ -441,17 +441,17 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                       step="500"
                       value={costPrice || ''}
                       onChange={(e) => setCostPrice(Number(e.target.value))}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Harga Jual ke Pembeli
                   </label>
                   <div className="relative">
-                    <span className="absolute left-3 top-2 text-xs text-zinc-400">Rp</span>
+                    <span className="absolute left-3 top-2 text-xs text-zinc-400 dark:text-zinc-500">Rp</span>
                     <input
                       id="input-product-price"
                       type="number"
@@ -459,29 +459,29 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                       step="500"
                       value={sellingPrice || ''}
                       onChange={(e) => setSellingPrice(Number(e.target.value))}
-                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Margin Preview */}
-              <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 flex items-center justify-between text-xs">
-                <span className="text-zinc-600 flex items-center gap-1.5">
-                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/70 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between text-xs">
+                <span className="text-zinc-600 dark:text-zinc-400 flex items-center gap-1.5">
+                  <TrendingUp className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   Margin Bersih:
                 </span>
                 <div className="flex items-center gap-2 font-medium">
-                  <span className="text-zinc-900 font-semibold font-mono">
+                  <span className="text-zinc-900 dark:text-zinc-100 font-semibold font-mono">
                     +{formatRupiah(profitPerUnit)} / {unit}
                   </span>
                   <span
                     className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                       marginPct >= 30
-                        ? 'bg-emerald-100 text-emerald-800'
+                        ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
                         : marginPct > 0
-                        ? 'bg-amber-100 text-amber-800'
-                        : 'bg-rose-100 text-rose-800'
+                        ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                        : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
                     }`}
                   >
                     {marginPct}% Margin
@@ -492,7 +492,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
               {/* Stock & Low Stock Alert */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Sisa Stok Saat Ini
                   </label>
                   <input
@@ -501,12 +501,12 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                     min="0"
                     value={stock || ''}
                     onChange={(e) => setStock(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                  <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                     Batas Stok Kritis (Alert AI)
                   </label>
                   <input
@@ -515,17 +515,17 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                     min="1"
                     value={minStockAlert || ''}
                     onChange={(e) => setMinStockAlert(Number(e.target.value))}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
                   />
                 </div>
               </div>
 
               {/* Submit Buttons */}
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100">
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-zinc-100 dark:border-zinc-800">
                 <button
                   type="button"
                   onClick={onClose}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 hover:bg-zinc-100 transition-colors tactile-btn"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors tactile-btn cursor-pointer"
                 >
                   Batal
                 </button>

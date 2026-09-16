@@ -940,31 +940,31 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
   return (
     <div className="max-w-4xl mx-auto space-y-4 pb-8">
       {/* 1. KOTAK KONTROL FORMULIR SIMPEL */}
-      <div className="bg-white rounded-2xl border border-zinc-200/90 p-4 sm:p-5 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-zinc-100">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/90 dark:border-zinc-800 p-4 sm:p-5 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-zinc-100 dark:border-zinc-800">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-bold text-zinc-900 flex items-center gap-1.5">
-                <Sparkles className="w-4 h-4 text-emerald-600" />
+              <h1 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 <span>Desain Foto Promosi &amp; Caption</span>
               </h1>
-              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 text-zinc-700 border border-zinc-200">
+              <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
                 Format Poster Kuliner
               </span>
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               Pilih produk dan template poster, AI otomatis membuat grafis promosi siap tayang.
             </p>
           </div>
 
           {/* Format Rasio */}
-          <div className="flex items-center gap-1 bg-zinc-100 p-1 rounded-xl self-start sm:self-auto shrink-0">
+          <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl self-start sm:self-auto shrink-0">
             <button
               onClick={() => setAspectRatio('1:1')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 aspectRatio === '1:1'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               }`}
             >
               <Square className="w-3.5 h-3.5" />
@@ -974,8 +974,8 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
               onClick={() => setAspectRatio('9:16')}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 aspectRatio === '9:16'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               }`}
             >
               <Smartphone className="w-3.5 h-3.5" />
@@ -987,16 +987,16 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
         {/* Input Baris: Produk + Info Promo + Tombol Refresh */}
         <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-3.5 items-end">
           <div className="sm:col-span-6">
-            <label className="block text-xs font-semibold text-zinc-700 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Produk yang Dipromosikan
             </label>
             <select
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs font-medium text-zinc-900 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 cursor-pointer"
+              className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-zinc-900 dark:text-zinc-100 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 cursor-pointer"
             >
               {products.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={p.id} value={p.id} className="dark:bg-zinc-900 dark:text-zinc-100">
                   {p.name} — {formatRupiah(p.sellingPrice)}
                 </option>
               ))}
@@ -1004,7 +1004,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
           </div>
 
           <div className="sm:col-span-4">
-            <label className="block text-xs font-semibold text-zinc-700 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Teks Promo / Diskon
             </label>
             <input
@@ -1012,7 +1012,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
               value={promoText}
               onChange={(e) => setPromoText(e.target.value)}
               placeholder="Contoh: Diskon 20%, Beli 2 Gratis 1"
-              className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+              className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 bg-white dark:bg-zinc-950 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
             />
           </div>
 
@@ -1031,8 +1031,8 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
 
       {/* Toast Notifikasi */}
       {notice && (
-        <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800 flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <div className="p-3 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 text-xs font-semibold text-emerald-800 dark:text-emerald-300 flex items-center gap-2 animate-in fade-in">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
           <span>{notice}</span>
         </div>
       )}
@@ -1044,17 +1044,17 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
           {/* PILIHAN TEMPLATE FOTO DENGAN VECTOR ICON & PALETTE WARNA */}
           <div className="w-full max-w-sm mb-3">
             <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider flex items-center gap-1">
-                <Palette className="w-3.5 h-3.5 text-emerald-600" />
+              <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                <Palette className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                 <span>Tema Desain (10 Pilihan):</span>
               </span>
-              <span className="text-[10px] text-zinc-400 font-medium truncate max-w-[150px]">
+              <span className="text-[10px] text-zinc-400 dark:text-zinc-500 font-medium truncate max-w-[150px]">
                 {activeTemplate.tagline}
               </span>
             </div>
 
             {/* Grid 10 Template dengan Color Swatches */}
-            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto p-1.5 bg-zinc-50/90 rounded-2xl border border-zinc-200 shadow-2xs">
+            <div className="grid grid-cols-2 gap-1.5 max-h-56 overflow-y-auto p-1.5 bg-zinc-50/90 dark:bg-zinc-950/70 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xs">
               {TEMPLATES.map((t) => {
                 const IconComponent = t.Icon;
                 const isSelected = selectedTemplate === t.id;
@@ -1064,15 +1064,15 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                     onClick={() => setSelectedTemplate(t.id)}
                     className={`p-2 rounded-xl text-left transition-all cursor-pointer relative flex flex-col justify-between ${
                       isSelected
-                        ? 'bg-zinc-900 text-white shadow-xs ring-2 ring-zinc-900'
-                        : 'bg-white text-zinc-700 hover:bg-zinc-100/80 border border-zinc-200'
+                        ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 shadow-xs ring-2 ring-zinc-900 dark:ring-zinc-100'
+                        : 'bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100/80 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-800'
                     }`}
                   >
                     <div className="flex items-center justify-between gap-1 mb-1">
                       <div className="flex items-center gap-1.5 truncate">
                         <IconComponent
                           className={`w-3.5 h-3.5 shrink-0 ${
-                            isSelected ? 'text-amber-300' : 'text-zinc-500'
+                            isSelected ? 'text-amber-300 dark:text-amber-600' : 'text-zinc-500 dark:text-zinc-400'
                           }`}
                         />
                         <span className="text-[11px] font-bold truncate">
@@ -1083,8 +1083,8 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                         <span
                           className={`text-[8px] px-1 py-0.2 rounded font-semibold shrink-0 ${
                             isSelected
-                              ? 'bg-zinc-800 text-amber-300 border border-zinc-700'
-                              : 'bg-zinc-100 text-zinc-700 border border-zinc-200'
+                              ? 'bg-zinc-800 dark:bg-zinc-200 text-amber-300 dark:text-amber-700 border border-zinc-700 dark:border-zinc-300'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700'
                           }`}
                         >
                           {t.badgeTag}
@@ -1092,10 +1092,10 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                       )}
                     </div>
 
-                    <div className="flex items-center justify-between pt-1 border-t border-zinc-100/30">
+                    <div className="flex items-center justify-between pt-1 border-t border-zinc-100/30 dark:border-zinc-800/60">
                       <span
                         className={`text-[9px] truncate ${
-                          isSelected ? 'text-zinc-300' : 'text-zinc-400'
+                          isSelected ? 'text-zinc-300 dark:text-zinc-600' : 'text-zinc-400 dark:text-zinc-500'
                         }`}
                       >
                         {t.category}
@@ -1307,8 +1307,8 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
         {/* KOLOM KANAN: Tombol Share & Teks Siap Kirim (7 Kolom) */}
         <div className="md:col-span-7 space-y-3.5">
           {/* Card Tombol Share Langsung */}
-          <div className="bg-white rounded-2xl border border-zinc-200/90 p-4 shadow-xs space-y-2.5">
-            <span className="text-xs font-bold text-zinc-900 block">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/90 dark:border-zinc-800 p-4 shadow-xs space-y-2.5">
+            <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 block">
               1. Publikasikan &amp; Bagikan Langsung:
             </span>
 
@@ -1349,7 +1349,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
               <button
                 onClick={handleShareTikTok}
                 disabled={isExporting}
-                className="p-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] disabled:opacity-50"
+                className="p-2.5 rounded-xl bg-zinc-900 dark:bg-zinc-800 hover:bg-zinc-800 dark:hover:bg-zinc-700 text-white text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer shadow-xs active:scale-[0.98] disabled:opacity-50"
               >
                 <Video className="w-4 h-4 text-cyan-400 shrink-0" />
                 <div className="text-left">
@@ -1365,24 +1365,24 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
               <button
                 onClick={handleDownload}
                 disabled={isExporting}
-                className="p-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50"
+                className="p-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 text-xs font-semibold flex items-center gap-2.5 transition-all cursor-pointer active:scale-[0.98] disabled:opacity-50"
               >
-                <Download className="w-4 h-4 text-zinc-600 shrink-0" />
+                <Download className="w-4 h-4 text-zinc-600 dark:text-zinc-400 shrink-0" />
                 <div className="text-left">
                   <div className="leading-tight">
                     {isExporting ? 'Memproses...' : 'Unduh Poster (PNG)'}
                   </div>
-                  <div className="text-[10px] text-zinc-500 font-normal">Resolusi tinggi 1080px</div>
+                  <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-normal">Resolusi tinggi 1080px</div>
                 </div>
               </button>
             </div>
           </div>
 
           {/* Card Teks Caption AI */}
-          <div className="bg-white rounded-2xl border border-zinc-200/90 p-4 shadow-xs space-y-2.5">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/90 dark:border-zinc-800 p-4 shadow-xs space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-zinc-900 flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-1.5">
+                <Tag className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                 <span>2. Naskah Caption Siap Pakai:</span>
               </span>
 
@@ -1391,7 +1391,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                 className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   copied
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800'
+                    : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200'
                 }`}
               >
                 {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
@@ -1400,12 +1400,12 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
             </div>
 
             {loading ? (
-              <div className="p-6 text-center text-xs text-zinc-400 animate-pulse">
+              <div className="p-6 text-center text-xs text-zinc-400 dark:text-zinc-500 animate-pulse">
                 Sedang menyusun kata-kata promosi terbaik...
               </div>
             ) : (
               <div className="space-y-2">
-                <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-800 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
+                <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/80 border border-zinc-200/80 dark:border-zinc-800 text-xs text-zinc-800 dark:text-zinc-200 whitespace-pre-wrap leading-relaxed max-h-48 overflow-y-auto">
                   {generatedContent?.caption || 'Pilih produk untuk membuat caption promosi otomatis.'}
                 </div>
 
@@ -1415,7 +1415,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                     {generatedContent.hashtags.map((tag, i) => (
                       <span
                         key={i}
-                        className="px-2 py-0.5 rounded-md text-[11px] bg-zinc-100 text-zinc-600"
+                        className="px-2 py-0.5 rounded-md text-[11px] bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300"
                       >
                         {tag}
                       </span>
@@ -1431,7 +1431,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       {/* MODAL PANDUAN LANGSUNG POSTING INSTAGRAM / TIKTOK */}
       {postGuide.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
-          <div className="bg-white rounded-2xl max-w-md w-full p-5 shadow-xl border border-zinc-200 space-y-4 animate-in zoom-in-95">
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl max-w-md w-full p-5 shadow-xl border border-zinc-200 dark:border-zinc-800 space-y-4 animate-in zoom-in-95">
             {/* Header Modal */}
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-2.5">
@@ -1449,12 +1449,12 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   )}
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-zinc-900">
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
                     {postGuide.platform === 'instagram'
                       ? 'Membuka Postingan Instagram'
                       : 'Membuka Unggahan TikTok'}
                   </h3>
-                  <p className="text-xs text-zinc-500">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400">
                     Langkah praktis untuk menerbitkan poster promosi Anda
                   </p>
                 </div>
@@ -1462,41 +1462,41 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
 
               <button
                 onClick={() => setPostGuide((prev) => ({ ...prev, isOpen: false }))}
-                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 cursor-pointer"
+                className="p-1 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Checklist Langkah Praktis */}
-            <div className="space-y-2.5 bg-zinc-50 p-3.5 rounded-xl border border-zinc-200/80 text-xs">
+            <div className="space-y-2.5 bg-zinc-50 dark:bg-zinc-950/70 p-3.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 text-xs">
               <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-zinc-900">1. Foto Poster Telah Diunduh:</span>
-                  <p className="text-zinc-600 mt-0.5">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">1. Foto Poster Telah Diunduh:</span>
+                  <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
                     File gambar telah tersimpan di folder Download perangkat Anda.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-zinc-900">2. Naskah Caption Telah Disalin:</span>
-                  <p className="text-zinc-600 mt-0.5">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">2. Naskah Caption Telah Disalin:</span>
+                  <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
                     Teks promosi beserta tagar sudah siap ditempel (paste) di kolom caption.
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-2.5">
-                <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-semibold text-zinc-900">
+                  <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                     3. Buka Tab {postGuide.platform === 'instagram' ? 'Instagram' : 'TikTok'}:
                   </span>
-                  <p className="text-zinc-600 mt-0.5">
+                  <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
                     {postGuide.platform === 'instagram'
                       ? 'Klik tombol Buat Post (+) di Instagram, pilih foto yang baru diunduh, lalu tempel (Paste) caption.'
                       : 'Halaman TikTok Studio/Upload terbuka. Unggah foto vertikal dan tempel caption.'}
@@ -1509,7 +1509,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={() => window.open(postGuide.targetUrl, '_blank')}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                className="flex-1 py-2.5 px-3 rounded-xl bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-white text-white dark:text-zinc-950 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
                 <span>Buka {postGuide.platform === 'instagram' ? 'Instagram' : 'TikTok'} Lagi</span>
@@ -1520,7 +1520,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   navigator.clipboard.writeText(postGuide.caption);
                   showNotice('Naskah caption disalin kembali ke clipboard.');
                 }}
-                className="py-2.5 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="py-2.5 px-3 rounded-xl bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <Copy className="w-3.5 h-3.5" />
                 <span>Salin Ulang Teks</span>

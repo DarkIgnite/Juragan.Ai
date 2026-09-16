@@ -60,20 +60,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   return (
     <div className="space-y-6">
       {/* Top Banner */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center">
               <ShieldCheck className="w-5 h-5" />
             </div>
-            <h2 className="text-base font-semibold text-zinc-900">
+            <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
               Panel Pengawasan &amp; Analitik Platform Nasional
             </h2>
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 text-indigo-800 border border-indigo-200">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-indigo-50 dark:bg-indigo-950/60 text-indigo-800 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800">
               Admin Role Access
             </span>
           </div>
-          <p className="text-xs text-zinc-700 mt-1 max-w-2xl">
+          <p className="text-xs text-zinc-700 dark:text-zinc-400 mt-1 max-w-2xl">
             Memantau pertumbuhan omzet agregat UMKM, efektivitas pemanfaatan AI Gemini di seluruh toko,
             dan mengelola akun para Juragan yang terdaftar.
           </p>
@@ -83,7 +83,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           id="btn-refresh-admin-stats"
           onClick={fetchStats}
           disabled={loading}
-          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-900 text-white hover:bg-zinc-800 transition-all shrink-0 active:scale-[0.98]"
+          className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-zinc-800 dark:hover:bg-white transition-all shrink-0 active:scale-[0.98] cursor-pointer"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
           <span>Refresh Data Platform</span>
@@ -93,65 +93,65 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* Aggregate Metric Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1 */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-700">Total Omzet Agregat</span>
-            <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-400">Total Omzet Agregat</span>
+            <div className="w-7 h-7 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center">
               <TrendingUp className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl font-bold text-zinc-900 mt-2">
+          <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mt-2">
             {formatRupiah(totalOmzetPlatform)}
           </div>
-          <p className="text-[11px] text-zinc-700 mt-1">
-            Laba bersih UMKM: <strong className="text-emerald-700">{formatRupiah(totalLabaPlatform)}</strong>
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-1">
+            Laba bersih UMKM: <strong className="text-emerald-700 dark:text-emerald-400">{formatRupiah(totalLabaPlatform)}</strong>
           </p>
         </div>
 
         {/* Metric 2 */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-700">Toko UMKM Terdaftar</span>
-            <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-400">Toko UMKM Terdaftar</span>
+            <div className="w-7 h-7 rounded-lg bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400 flex items-center justify-center">
               <Store className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl font-bold text-zinc-900 mt-2">
+          <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mt-2">
             {umkmUsers.length} Toko Aktif
           </div>
-          <p className="text-[11px] text-zinc-700 mt-1">
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-1">
             {allProducts.length} total produk terdaftar di katalog
           </p>
         </div>
 
         {/* Metric 3 */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-700">Total Transaksi Selesai</span>
-            <div className="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-400">Total Transaksi Selesai</span>
+            <div className="w-7 h-7 rounded-lg bg-amber-50 dark:bg-amber-950/60 text-amber-600 dark:text-amber-400 flex items-center justify-center">
               <Activity className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl font-bold text-zinc-900 mt-2">
+          <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mt-2">
             {allTransactions.length} Transaksi
           </div>
-          <p className="text-[11px] text-zinc-700 mt-1">
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-1">
             Rata-rata: {formatRupiah(totalOmzetPlatform / (allTransactions.length || 1))} / order
           </p>
         </div>
 
         {/* Metric 4 */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-700">Total Pemanggilan AI</span>
-            <div className="w-7 h-7 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-400">Total Pemanggilan AI</span>
+            <div className="w-7 h-7 rounded-lg bg-purple-50 dark:bg-purple-950/60 text-purple-600 dark:text-purple-400 flex items-center justify-center">
               <Sparkles className="w-4 h-4" />
             </div>
           </div>
-          <div className="text-xl font-bold text-zinc-900 mt-2">
+          <div className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mt-2">
             {stats?.totalAiCalls || 43} Permintaan
           </div>
-          <p className="text-[11px] text-zinc-700 mt-1">
+          <p className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-1">
             Advisor: {stats?.totalAdvisorCalls || 14} • Konten: {stats?.totalContentCalls || 29}
           </p>
         </div>
@@ -160,16 +160,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* Two Column Layout: Store Management & AI Logs */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Toko UMKM Directory (7 Cols) */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4">
+        <div className="lg:col-span-7 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
-              <Users className="w-4 h-4 text-emerald-600" />
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <Users className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Kelola Pengguna &amp; Toko UMKM
             </h3>
-            <span className="text-xs text-zinc-700">{umkmUsers.length} Juragan Aktif</span>
+            <span className="text-xs text-zinc-700 dark:text-zinc-400">{umkmUsers.length} Juragan Aktif</span>
           </div>
 
-          <div className="divide-y divide-zinc-100 border border-zinc-200/80 rounded-xl overflow-hidden">
+          <div className="divide-y divide-zinc-100 dark:divide-zinc-800 border border-zinc-200/80 dark:border-zinc-800 rounded-xl overflow-hidden">
             {umkmUsers.map((user) => {
               const userTxs = allTransactions.filter((t) => t.userId === user.id);
               const userProducts = allProducts.filter((p) => p.userId === user.id);
@@ -178,7 +178,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               return (
                 <div
                   key={user.id}
-                  className="p-4 hover:bg-zinc-50/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-4 hover:bg-zinc-50/60 dark:hover:bg-zinc-800/60 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -188,26 +188,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-xs text-zinc-900">
+                        <span className="font-semibold text-xs text-zinc-900 dark:text-zinc-100">
                           {user.storeName}
                         </span>
                         <span
                           onClick={() => onToggleUserStatus(user.id)}
                           className={`cursor-pointer px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
                             user.status === 'verified'
-                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                              : 'bg-zinc-100 text-zinc-600 border-zinc-200'
+                              ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800'
+                              : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border-zinc-200 dark:border-zinc-700'
                           }`}
                           title="Klik untuk mengubah status"
                         >
                           {user.status === 'verified' ? 'Terverifikasi' : 'Aktif'}
                         </span>
                       </div>
-                      <div className="text-[11px] text-zinc-700 mt-0.5">
+                      <div className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-0.5">
                         Pemilik: {user.name} • {user.city} • {user.category}
                       </div>
-                      <div className="text-[11px] text-zinc-700 mt-0.5">
-                        {userProducts.length} Produk • {userTxs.length} Transaksi • Omzet: <strong>{formatRupiah(userOmzet)}</strong>
+                      <div className="text-[11px] text-zinc-700 dark:text-zinc-400 mt-0.5">
+                        {userProducts.length} Produk • {userTxs.length} Transaksi • Omzet: <strong className="text-zinc-900 dark:text-zinc-100">{formatRupiah(userOmzet)}</strong>
                       </div>
                     </div>
                   </div>
@@ -215,7 +215,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <button
                     id={`btn-inspect-${user.id}`}
                     onClick={() => onInspectStore(user)}
-                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-100 text-zinc-800 hover:bg-zinc-200 active:scale-[0.98] transition-all self-start sm:self-center shrink-0"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-zinc-200 dark:hover:bg-zinc-700 active:scale-[0.98] transition-all self-start sm:self-center shrink-0 cursor-pointer"
                   >
                     <span>Masuk ke Toko</span>
                     <ExternalLink className="w-3 h-3" />
@@ -227,38 +227,38 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         </div>
 
         {/* Right: AI Usage Logs & Monitoring (5 Cols) */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4 flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs space-y-4 flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
-                <Cpu className="w-4 h-4 text-purple-600" />
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <Cpu className="w-4 h-4 text-purple-600 dark:text-purple-400" />
                 Audit Log Aktivitas AI Platform
               </h3>
-              <span className="text-[11px] font-mono text-zinc-700">Real-time</span>
+              <span className="text-[11px] font-mono text-zinc-700 dark:text-zinc-400">Real-time</span>
             </div>
 
             <div className="space-y-2.5 max-h-80 overflow-y-auto pr-1">
               {(stats?.logs || []).map((log) => (
                 <div
                   key={log.id}
-                  className="p-3 rounded-xl border border-zinc-200/80 bg-zinc-50/60 text-xs space-y-1"
+                  className="p-3 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-950/60 text-xs space-y-1"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-zinc-900">{log.feature}</span>
+                    <span className="font-semibold text-zinc-900 dark:text-zinc-100">{log.feature}</span>
                     <span
                       className={`px-1.5 py-0.2 rounded text-[10px] font-semibold ${
                         log.status === 'success'
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                          : 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
                       }`}
                     >
                       {log.status === 'success' ? '200 OK (Gemini)' : 'Fallback'}
                     </span>
                   </div>
-                  <div className="text-zinc-700 text-[11px]">
-                    Toko: <strong>{log.store}</strong> ({log.user})
+                  <div className="text-zinc-700 dark:text-zinc-400 text-[11px]">
+                    Toko: <strong className="text-zinc-900 dark:text-zinc-100">{log.store}</strong> ({log.user})
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-zinc-700 pt-0.5">
+                  <div className="flex items-center justify-between text-[10px] text-zinc-700 dark:text-zinc-400 pt-0.5">
                     <span>Model: {log.model}</span>
                     <span>{new Date(log.timestamp).toLocaleTimeString('id-ID')}</span>
                   </div>
@@ -267,12 +267,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="p-3 rounded-xl bg-zinc-100 border border-zinc-200 text-xs text-zinc-600 flex items-center justify-between">
+          <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-950/80 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-600 dark:text-zinc-400 flex items-center justify-between">
             <span className="flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-zinc-500" />
+              <Clock className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
               SLA Keandalan Platform:
             </span>
-            <strong className="text-zinc-900">99.98% Uptime</strong>
+            <strong className="text-zinc-900 dark:text-zinc-100">99.98% Uptime</strong>
           </div>
         </div>
       </div>

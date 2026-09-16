@@ -86,7 +86,31 @@ export default function App() {
     }
     setIsVoiceModalOpen(true);
   };
+
   const [apiConnected, setApiConnected] = useState(false);
+
+  // Dark Mode Theme State & Persistence
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('juragan_theme');
+    if (saved === 'dark' || saved === 'light') return saved;
+    if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      return 'dark';
+    }
+    return 'light';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('juragan_theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'light' ? 'dark' : 'light'));
+  };
 
   // Sync to local storage
   useEffect(() => {
@@ -273,10 +297,12 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50/60 text-zinc-900 flex flex-col antialiased selection:bg-emerald-500 selection:text-white">
+    <div className="min-h-screen bg-zinc-50/60 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
       {/* Top Header with Minimalist Profile Menu & Google Sign-In */}
       <Header
         currentUser={currentUser}
+        theme={theme}
+        onToggleTheme={toggleTheme}
         onOpenRoleSwitcher={() => setIsRoleModalOpen(true)}
         onOpenApiSetup={() => setIsApiModalOpen(true)}
         onOpenGoogleAuth={() => setIsGoogleModalOpen(true)}
@@ -422,15 +448,15 @@ export default function App() {
       {/* Mobile Bottom Navigation Bar (Instagram & Facebook Native Style) */}
       <nav
         id="mobile-bottom-nav"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-zinc-200/90 py-1.5 px-3 flex items-center justify-around shadow-lg"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md border-t border-zinc-200/90 dark:border-zinc-800/90 py-1.5 px-3 flex items-center justify-around shadow-lg transition-colors"
       >
         <button
           id="btn-mobile-nav-home"
           onClick={() => setActiveTab(isAdmin ? 'admin-overview' : 'dashboard')}
           className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
             activeTab === 'dashboard' || activeTab === 'admin-overview'
-              ? 'text-emerald-600 font-semibold'
-              : 'text-zinc-500 hover:text-zinc-800'
+              ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 hover:dark:text-zinc-200'
           }`}
         >
           <Home className="w-5 h-5" />
@@ -446,8 +472,8 @@ export default function App() {
           }}
           className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
             activeTab === 'products'
-              ? 'text-emerald-600 font-semibold'
-              : 'text-zinc-500 hover:text-zinc-800'
+              ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 hover:dark:text-zinc-200'
           }`}
         >
           <Package className="w-5 h-5" />
@@ -458,7 +484,7 @@ export default function App() {
         <button
           id="btn-mobile-nav-voice"
           onClick={handleOpenVoiceConsultation}
-          className="-mt-5 p-1 rounded-full bg-white shadow-md focus:outline-none active:scale-95 transition-transform"
+          className="-mt-5 p-1 rounded-full bg-white dark:bg-zinc-900 shadow-md border border-zinc-100 dark:border-zinc-800 focus:outline-none active:scale-95 transition-transform"
           title="Tanya Suara Juragan AI"
         >
           <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-emerald-500 via-teal-500 to-blue-600 text-white flex items-center justify-center shadow-xs">
@@ -471,8 +497,8 @@ export default function App() {
           onClick={() => setActiveTab('transactions')}
           className={`flex flex-col items-center justify-center p-1.5 transition-colors ${
             activeTab === 'transactions'
-              ? 'text-emerald-600 font-semibold'
-              : 'text-zinc-500 hover:text-zinc-800'
+              ? 'text-emerald-600 dark:text-emerald-400 font-semibold'
+              : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 hover:dark:text-zinc-200'
           }`}
         >
           <ReceiptText className="w-5 h-5" />
@@ -482,14 +508,14 @@ export default function App() {
         <button
           id="btn-mobile-nav-profile"
           onClick={() => setIsRoleModalOpen(true)}
-          className="flex flex-col items-center justify-center p-1.5 transition-colors text-zinc-500 hover:text-zinc-800"
+          className="flex flex-col items-center justify-center p-1.5 transition-colors text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 hover:dark:text-zinc-200"
           title="Ganti Toko / Profil"
         >
           {currentUser.photoUrl ? (
             <img
               src={currentUser.photoUrl}
               alt={currentUser.name}
-              className="w-5 h-5 rounded-full object-cover ring-1 ring-zinc-300"
+              className="w-5 h-5 rounded-full object-cover ring-1 ring-zinc-300 dark:ring-zinc-700"
             />
           ) : (
             <User className="w-5 h-5" />
@@ -503,7 +529,7 @@ export default function App() {
         <button
           id="btn-floating-voice-ai"
           onClick={handleOpenVoiceConsultation}
-          className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 backdrop-blur-md text-zinc-900 shadow-lg hover:shadow-xl border border-zinc-200/90 hover:border-zinc-300 group transition-all duration-200 active:scale-[0.97]"
+          className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md text-zinc-900 dark:text-zinc-100 shadow-lg hover:shadow-xl border border-zinc-200/90 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 group transition-all duration-200 active:scale-[0.97]"
         >
           <div className="relative flex items-center justify-center">
             <span className="absolute w-4 h-4 rounded-full bg-blue-400/30 animate-ping" />
@@ -512,11 +538,11 @@ export default function App() {
             </div>
           </div>
           <div className="text-left pr-1">
-            <div className="text-xs font-bold flex items-center gap-1.5 text-zinc-900">
+            <div className="text-xs font-bold flex items-center gap-1.5 text-zinc-900 dark:text-zinc-100">
               <span>Tanya Juragan AI</span>
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             </div>
-            <div className="text-[10px] text-zinc-500 font-medium">
+            <div className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
               Konsultasi &amp; Cek Stok Suara
             </div>
           </div>
@@ -524,11 +550,11 @@ export default function App() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200/80 py-6 text-center text-xs text-zinc-500 mb-14 md:mb-0">
+      <footer className="border-t border-zinc-200/80 dark:border-zinc-800/80 py-6 text-center text-xs text-zinc-500 dark:text-zinc-400 mb-14 md:mb-0 transition-colors">
         <p>
-          <strong>Juragan.AI</strong> — AI Business Companion untuk UMKM Mikro &amp; Kecil Indonesia
+          <strong className="text-zinc-800 dark:text-zinc-200">Juragan.AI</strong> — AI Business Companion untuk UMKM Mikro &amp; Kecil Indonesia
         </p>
-        <p className="text-[11px] text-zinc-400 mt-1">
+        <p className="text-[11px] text-zinc-400 dark:text-zinc-500 mt-1">
           Simpel, Cepat, Terintegrasi, &amp; Bebas Glitch.
         </p>
       </footer>

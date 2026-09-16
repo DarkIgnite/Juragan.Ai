@@ -1249,36 +1249,36 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 15 }}
             transition={{ duration: 0.25, ease: easeOutCurve }}
-            className="relative w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-zinc-200/90 overflow-hidden flex flex-col z-10"
+            className="relative w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] max-w-2xl bg-white dark:bg-zinc-900 rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-zinc-200/90 dark:border-zinc-800 overflow-hidden flex flex-col z-10"
           >
-            {/* Top Bar (White Mode) */}
-            <div className="px-4 py-2.5 sm:px-5 sm:py-3.5 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
+            {/* Top Bar */}
+            <div className="px-4 py-2.5 sm:px-5 sm:py-3.5 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900 shrink-0">
               <div className="flex items-center gap-2.5 sm:gap-3">
                 <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-blue-500 via-emerald-500 to-amber-500 p-[1.5px] flex items-center justify-center shadow-xs shrink-0">
-                  <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <div className="w-full h-full bg-white dark:bg-zinc-900 rounded-[14px] flex items-center justify-center">
+                    <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
                 </div>
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
-                    <h3 className="text-xs sm:text-sm font-bold text-zinc-900 tracking-tight">
+                    <h3 className="text-xs sm:text-sm font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
                       Juragan Voice AI
                     </h3>
-                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
+                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Bahasa Indonesia
                     </span>
                   </div>
-                  <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate max-w-[200px] sm:max-w-none">
-                    Toko: <strong className="text-zinc-800">{currentUser.storeName}</strong> ({products.length} produk)
+                  <p className="text-[10px] sm:text-[11px] text-zinc-500 dark:text-zinc-400 truncate max-w-[200px] sm:max-w-none">
+                    Toko: <strong className="text-zinc-800 dark:text-zinc-200">{currentUser.storeName}</strong> ({products.length} produk)
                   </p>
                 </div>
               </div>
 
               {/* Controls */}
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50 border border-zinc-200 text-[11px] font-medium text-zinc-600">
-                  <Radio className="w-3 h-3 text-emerald-600" />
+                <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-[11px] font-medium text-zinc-600 dark:text-zinc-300">
+                  <Radio className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                   <span className="truncate max-w-[120px]">{activeVoiceName}</span>
                 </div>
 
@@ -1291,8 +1291,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   title={isMuted ? 'Nyalakan Suara AI' : 'Bisukan Suara AI'}
                   className={`p-1.5 sm:p-2 rounded-xl border transition-all ${
                     isMuted
-                      ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
-                      : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
+                      ? 'bg-rose-50 dark:bg-rose-950/50 border-rose-200 dark:border-rose-800 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50'
+                      : 'bg-zinc-50 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700'
                   }`}
                 >
                   {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
@@ -1303,14 +1303,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Buka di Tab Baru (Untuk Izin Mikrofon Penuh Browser)"
-                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center"
+                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors flex items-center justify-center"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
 
                 <button
                   onClick={handleClose}
-                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1318,7 +1318,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             </div>
 
             {/* Middle Stage: Dynamic Visual Waveform & Voice Circular Orb */}
-            <div className="relative py-2 sm:py-4 px-3 sm:px-4 flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-50/90 via-white to-zinc-50/50 border-b border-zinc-100 shrink-0">
+            <div className="relative py-2 sm:py-4 px-3 sm:px-4 flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-50/90 via-white to-zinc-50/50 dark:from-zinc-900 dark:via-zinc-900/90 dark:to-zinc-950 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
               {/* Fluid Visual Wave Canvas across the stage */}
               <div className="absolute inset-0 pointer-events-none opacity-90">
                 <WaveformVisualizer
@@ -1397,8 +1397,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     }`}
                   />
 
-                  {/* Inner Core: Crisp White Surface */}
-                  <div className="absolute inset-1.5 rounded-full bg-white shadow-inner flex items-center justify-center">
+                  {/* Inner Core */}
+                  <div className="absolute inset-1.5 rounded-full bg-white dark:bg-zinc-900 shadow-inner flex items-center justify-center">
                     {isLoading ? (
                       <div className="flex items-center gap-1">
                         <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" />
@@ -1424,12 +1424,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                         ))}
                       </div>
                     ) : isTranscribingAudio ? (
-                      <div className="flex flex-col items-center justify-center text-emerald-600">
-                        <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-spin text-emerald-600" />
-                        <span className="text-[9px] font-bold mt-0.5 text-emerald-700">Menyalin...</span>
+                      <div className="flex flex-col items-center justify-center text-emerald-600 dark:text-emerald-400">
+                        <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-spin text-emerald-600 dark:text-emerald-400" />
+                        <span className="text-[9px] font-bold mt-0.5 text-emerald-700 dark:text-emerald-300">Menyalin...</span>
                       </div>
                     ) : isListening ? (
-                      <div className="flex flex-col items-center justify-center text-emerald-600">
+                      <div className="flex flex-col items-center justify-center text-emerald-600 dark:text-emerald-400">
                         {/* Dynamic Sound Wave Bars inside the Orb */}
                         <div className="flex items-center gap-0.5 sm:gap-1 h-5 sm:h-6">
                           {[0.4, 0.85, 0.55, 1.0, 0.7, 0.9, 0.45].map((h, i) => (
@@ -1446,14 +1446,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                             />
                           ))}
                         </div>
-                        <span className="text-[8px] sm:text-[9px] font-bold mt-0.5 text-emerald-700 uppercase tracking-wider">
+                        <span className="text-[8px] sm:text-[9px] font-bold mt-0.5 text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
                           Mendengar...
                         </span>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center text-zinc-700 group-hover:text-emerald-600 transition-colors">
+                      <div className="flex flex-col items-center justify-center text-zinc-700 dark:text-zinc-300 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                         <Mic className="w-5 h-5 sm:w-7 sm:h-7" />
-                        <span className="text-[9px] font-bold mt-0.5 text-zinc-500 group-hover:text-emerald-600">
+                        <span className="text-[9px] font-bold mt-0.5 text-zinc-500 dark:text-zinc-400 group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
                           Bicara
                         </span>
                       </div>
@@ -1465,13 +1465,13 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
               {/* Status Indicator & Live Captions */}
               <div className="mt-2 sm:mt-2.5 z-10 text-center w-full max-w-lg px-1 sm:px-2">
                 {isTranscribingAudio ? (
-                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs animate-pulse">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
+                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs animate-pulse">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 animate-spin" />
                     <span>Menyalin suara Anda ke teks (Gemini AI)...</span>
                   </div>
                 ) : micPermissionDenied ? (
-                  <div className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs max-w-md mx-auto">
-                    <span className="flex items-center gap-1 text-amber-800 font-bold">
+                  <div className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-xs font-semibold shadow-xs max-w-md mx-auto">
+                    <span className="flex items-center gap-1 text-amber-800 dark:text-amber-300 font-bold">
                       <span>⚠️ Akses mikrofon terhalang izin browser</span>
                     </span>
                     <a
@@ -1485,9 +1485,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     </a>
                   </div>
                 ) : speechNetworkNotice ? (
-                  <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium shadow-xs max-w-md mx-auto">
-                    <div className="flex items-center gap-1 text-amber-900 font-bold">
-                      <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-xs font-medium shadow-xs max-w-md mx-auto">
+                    <div className="flex items-center gap-1 text-amber-900 dark:text-amber-200 font-bold">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-700 dark:text-amber-400 shrink-0" />
                       <span>Layanan Suara Terhalang Jaringan</span>
                     </div>
                     <div className="flex items-center gap-2 pt-0.5">
@@ -1503,23 +1503,23 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                       </button>
                       <button
                         onClick={() => setSpeechNetworkNotice(false)}
-                        className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-800 text-xs font-semibold cursor-pointer"
+                        className="px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-800 border border-amber-300 dark:border-zinc-700 text-amber-800 dark:text-zinc-200 text-xs font-semibold cursor-pointer"
                       >
                         Tutup
                       </button>
                     </div>
                   </div>
                 ) : !isSTTSupported ? (
-                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium shadow-xs">
+                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-300 text-xs font-medium shadow-xs">
                     <span>Browser belum mendukung input suara. Gunakan kolom teks di bawah.</span>
                   </div>
                 ) : isSpeaking ? (
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold shadow-xs">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 text-xs font-semibold shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
                     <span>AI sedang berbicara...</span>
                     <button
                       onClick={stopSpeaking}
-                      className="ml-1 text-[11px] underline text-blue-800 hover:text-blue-900 font-bold cursor-pointer"
+                      className="ml-1 text-[11px] underline text-blue-800 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-150 font-bold cursor-pointer"
                     >
                       Hentikan
                     </button>
@@ -1528,29 +1528,29 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   <div className="flex flex-col items-center gap-1.5 w-full">
                     {/* Live speech transcription card when user is speaking */}
                     {(transcript || interimTranscript || inputText) ? (
-                      <div className="w-full p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white border-2 border-emerald-500 shadow-md flex flex-col gap-1.5 text-left animate-in fade-in zoom-in-95 duration-150">
+                      <div className="w-full p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white dark:bg-zinc-900 border-2 border-emerald-500 shadow-md flex flex-col gap-1.5 text-left animate-in fade-in zoom-in-95 duration-150">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
-                            <Mic className="w-3 h-3 text-emerald-600 animate-pulse" />
+                          <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
+                            <Mic className="w-3 h-3 text-emerald-600 dark:text-emerald-400 animate-pulse" />
                             <span>Mendengarkan Ucapan Anda:</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold">
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                             <span>Merekam</span>
                           </div>
                         </div>
 
-                        <div className="text-xs sm:text-sm font-semibold text-zinc-900 leading-snug break-words min-h-[28px] sm:min-h-[34px] bg-emerald-50/60 p-2 sm:p-2.5 rounded-lg sm:rounded-xl border border-emerald-200">
+                        <div className="text-xs sm:text-sm font-semibold text-zinc-900 dark:text-zinc-100 leading-snug break-words min-h-[28px] sm:min-h-[34px] bg-emerald-50/60 dark:bg-emerald-950/40 p-2 sm:p-2.5 rounded-lg sm:rounded-xl border border-emerald-200 dark:border-emerald-800">
                           "{transcript || interimTranscript || inputText}"
                           <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />
                         </div>
 
                         {/* Live Sound Level Meter */}
-                        <div className="w-full px-2.5 py-1 rounded-lg bg-zinc-50 border border-zinc-200/60 flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider shrink-0">
+                        <div className="w-full px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-950/80 border border-zinc-200/60 dark:border-zinc-800 flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0">
                             Sinyal Suara:
                           </span>
-                          <div className="flex-1 h-1.5 rounded-full bg-zinc-200 overflow-hidden">
+                          <div className="flex-1 h-1.5 rounded-full bg-zinc-200 dark:bg-zinc-800 overflow-hidden">
                             <div
                               ref={volumeBarRef}
                               style={{ width: '0%' }}
@@ -1559,8 +1559,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1 border-t border-zinc-100 text-[10px] sm:text-[11px]">
-                          <span className="text-zinc-500 font-medium">
+                        <div className="flex items-center justify-between pt-1 border-t border-zinc-100 dark:border-zinc-800 text-[10px] sm:text-[11px]">
+                          <span className="text-zinc-500 dark:text-zinc-400 font-medium">
                             ⏱️ Jeda bicara 3-4 detik untuk otomatis terkirim
                           </span>
                           <button
@@ -1580,18 +1580,18 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                       </div>
                     ) : (
                       <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
-                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs">
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-300 dark:border-emerald-800 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs">
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
                           <span>Mikrofon Aktif — Silakan Bicara...</span>
                         </div>
 
                         {/* Live Sound Level Meter */}
-                        <div className="w-full px-2.5 py-1 rounded-lg bg-white border border-emerald-200/80 shadow-2xs flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
+                        <div className="w-full px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-emerald-200/80 dark:border-emerald-800/60 shadow-2xs flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider shrink-0 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             Level Mic:
                           </span>
-                          <div className="flex-1 h-1.5 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200/60">
+                          <div className="flex-1 h-1.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden border border-zinc-200/60 dark:border-zinc-700">
                             <div
                               ref={volumeBarRef}
                               style={{ width: '0%' }}
@@ -1601,7 +1601,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                         </div>
 
                         {sttError && (
-                          <div className="w-full p-1.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-medium text-left">
+                          <div className="w-full p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/60 border border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-300 text-[10px] font-medium text-left">
                             ⚠️ {sttError}
                           </div>
                         )}
@@ -1611,17 +1611,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 ) : (
                   <button
                     onClick={startListening}
-                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 hover:text-zinc-900 text-xs font-semibold shadow-xs transition-all active:scale-98"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white dark:bg-zinc-900 hover:bg-zinc-50 dark:hover:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 text-xs font-semibold shadow-xs transition-all active:scale-98"
                   >
-                    <Mic className="w-3.5 h-3.5 text-emerald-600" />
+                    <Mic className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                     <span>Ketuk bulatan atau tombol mic untuk mulai bicara</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Conversation Log: Soft Off-White Background */}
-            <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 space-y-3 min-h-0 bg-zinc-50/70">
+            {/* Conversation Log */}
+            <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 space-y-3 min-h-0 bg-zinc-50/70 dark:bg-zinc-950/70">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -1633,7 +1633,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed ${
                       msg.role === 'user'
                         ? 'bg-emerald-600 text-white rounded-br-xs font-medium shadow-xs'
-                        : 'bg-white border border-zinc-200/90 text-zinc-800 rounded-bl-xs shadow-xs'
+                        : 'bg-white dark:bg-zinc-850 border border-zinc-200/90 dark:border-zinc-700/80 text-zinc-800 dark:text-zinc-100 rounded-bl-xs shadow-xs'
                     }`}
                   >
                     <div className="whitespace-pre-line">
@@ -1645,18 +1645,18 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                           )}
                         </>
                       ) : (
-                        <span className="flex items-center gap-1.5 text-zinc-400 py-0.5">
-                          <Sparkles className="w-3.5 h-3.5 animate-spin text-emerald-600 shrink-0" />
+                        <span className="flex items-center gap-1.5 text-zinc-400 dark:text-zinc-500 py-0.5">
+                          <Sparkles className="w-3.5 h-3.5 animate-spin text-emerald-600 dark:text-emerald-400 shrink-0" />
                           <span className="italic">Merangkai respon...</span>
                         </span>
                       )}
                     </div>
 
-                    {/* Referenced Store Products Card Grid in White Mode */}
+                    {/* Referenced Store Products Card Grid */}
                     {msg.referencedProducts && msg.referencedProducts.length > 0 && (
-                      <div className="mt-3 pt-2.5 border-t border-zinc-100 space-y-2">
-                        <div className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex items-center gap-1">
-                          <Package className="w-3 h-3 text-emerald-600" />
+                      <div className="mt-3 pt-2.5 border-t border-zinc-100 dark:border-zinc-800 space-y-2">
+                        <div className="text-[10px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1">
+                          <Package className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                           <span>Data Database Toko:</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1667,34 +1667,34 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                                 key={p.id}
                                 className={`p-2.5 rounded-xl border flex items-center gap-2.5 ${
                                   isLow
-                                    ? 'bg-rose-50/70 border-rose-200'
-                                    : 'bg-zinc-50 border-zinc-200'
+                                    ? 'bg-rose-50/70 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/60'
+                                    : 'bg-zinc-50 dark:bg-zinc-800/80 border-zinc-200 dark:border-zinc-700'
                                 }`}
                               >
                                 {p.imageUrl ? (
                                   <img
                                     src={p.imageUrl}
                                     alt={p.name}
-                                    className="w-10 h-10 rounded-lg object-cover border border-zinc-200 shrink-0"
+                                    className="w-10 h-10 rounded-lg object-cover border border-zinc-200 dark:border-zinc-700 shrink-0"
                                   />
                                 ) : (
-                                  <div className="w-10 h-10 rounded-lg bg-white border border-zinc-200 flex items-center justify-center shrink-0">
-                                    <Package className="w-5 h-5 text-zinc-400" />
+                                  <div className="w-10 h-10 rounded-lg bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center shrink-0">
+                                    <Package className="w-5 h-5 text-zinc-400 dark:text-zinc-500" />
                                   </div>
                                 )}
                                 <div className="min-w-0 flex-1">
-                                  <div className="text-xs font-bold text-zinc-900 truncate">
+                                  <div className="text-xs font-bold text-zinc-900 dark:text-zinc-100 truncate">
                                     {p.name}
                                   </div>
                                   <div className="flex items-center justify-between mt-0.5 text-[11px]">
                                     <span
                                       className={`font-semibold ${
-                                        isLow ? 'text-rose-600' : 'text-emerald-600'
+                                        isLow ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                                       }`}
                                     >
                                       Stok: {p.stock} {p.unit}
                                     </span>
-                                    <span className="text-zinc-500 font-medium">
+                                    <span className="text-zinc-500 dark:text-zinc-400 font-medium">
                                       Rp{p.sellingPrice.toLocaleString('id-ID')}
                                     </span>
                                   </div>
@@ -1706,15 +1706,15 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                       </div>
                     )}
                   </div>
-                  <span className="text-[10px] text-zinc-400 mt-1 px-1">{msg.timestamp}</span>
+                  <span className="text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 px-1">{msg.timestamp}</span>
                 </div>
               ))}
               <div ref={chatBottomRef} />
             </div>
 
-            {/* Quick Suggestion Chips: Crisp White Buttons */}
-            <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-white border-t border-zinc-100 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
-              <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 shrink-0">
+            {/* Quick Suggestion Chips */}
+            <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-white dark:bg-zinc-900 border-t border-zinc-100 dark:border-zinc-800 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 dark:text-zinc-500 shrink-0">
                 Saran:
               </span>
               {suggestedPrompts.map((prompt, idx) => (
@@ -1722,22 +1722,22 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   key={idx}
                   onClick={() => handleSendQuery(prompt)}
                   disabled={isLoading}
-                  className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-900 border border-zinc-200 whitespace-nowrap transition-colors shrink-0 disabled:opacity-50"
+                  className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-100 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 border border-zinc-200 dark:border-zinc-700 whitespace-nowrap transition-colors shrink-0 disabled:opacity-50"
                 >
                   "{prompt}"
                 </button>
               ))}
             </div>
 
-            {/* Bottom Input Field: Clean White Surface */}
-            <div className="p-2 sm:p-3 bg-white border-t border-zinc-200/80 flex items-center gap-2 shrink-0">
+            {/* Bottom Input Field */}
+            <div className="p-2 sm:p-3 bg-white dark:bg-zinc-900 border-t border-zinc-200/80 dark:border-zinc-800 flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 id="btn-mic-toggle-bottom"
                 onClick={toggleListening}
                 className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-200 active:scale-95 flex items-center justify-center shrink-0 ${
                   isListening
-                    ? 'bg-rose-600 text-white shadow-md animate-pulse ring-4 ring-rose-100'
+                    ? 'bg-rose-600 text-white shadow-md animate-pulse ring-4 ring-rose-100 dark:ring-rose-950/50'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
                 }`}
                 title={isListening ? 'Hentikan & Otomatis Kirim' : 'Bicara Sekarang'}
@@ -1767,16 +1767,16 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                         ? 'Mendengarkan ucapan Anda... Kata otomatis masuk ke sini'
                         : 'Ketik atau klik tombol mic untuk bicara...'
                     }
-                    className={`w-full px-4 py-2.5 rounded-xl text-xs text-zinc-900 placeholder-zinc-400 focus:outline-hidden transition-all ${
+                    className={`w-full px-4 py-2.5 rounded-xl text-xs text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 dark:placeholder-zinc-500 focus:outline-hidden transition-all ${
                       isListening
-                        ? 'bg-white border-2 border-emerald-500 shadow-xs ring-3 ring-emerald-50 pr-24 font-medium'
-                        : 'bg-zinc-50 border border-zinc-200 focus:bg-white focus:border-emerald-500'
+                        ? 'bg-white dark:bg-zinc-900 border-2 border-emerald-500 dark:border-emerald-500 shadow-xs ring-3 ring-emerald-50 dark:ring-emerald-950/50 pr-24 font-medium'
+                        : 'bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 focus:bg-white dark:focus:bg-zinc-900 focus:border-emerald-500 dark:focus:border-emerald-500'
                     }`}
                   />
                   {isListening && (
-                    <div className="absolute right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100/90 border border-emerald-300 pointer-events-none shadow-2xs">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-pulse" />
-                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider">
+                    <div className="absolute right-2.5 flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-100/90 dark:bg-emerald-950/80 border border-emerald-300 dark:border-emerald-700 pointer-events-none shadow-2xs">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 dark:bg-emerald-400 animate-pulse" />
+                      <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 uppercase tracking-wider">
                         {inputText ? 'Transkrip Otomatis' : 'Mendengar'}
                       </span>
                     </div>

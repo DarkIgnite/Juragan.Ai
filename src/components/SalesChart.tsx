@@ -142,41 +142,41 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
   return (
     <div className="space-y-6">
       {/* Main Trend Line Chart */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+      <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
-                <BarChart2 className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <BarChart2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Tren Penjualan Harian
               </h3>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
                 Omzet Harian
               </span>
             </div>
-            <p className="text-xs text-zinc-500 mt-0.5">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
               Grafik pergerakan omzet dan transaksi riil toko.
             </p>
           </div>
 
           {/* Segmented Control for range */}
-          <div className="flex items-center bg-zinc-100 p-1 rounded-xl self-start sm:self-auto">
+          <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl self-start sm:self-auto">
             <button
               onClick={() => setTimeRange('7d')}
-              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                 timeRange === '7d'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               }`}
             >
               7 Hari
             </button>
             <button
               onClick={() => setTimeRange('14d')}
-              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+              className={`px-3 py-1 text-xs font-medium rounded-lg transition-all cursor-pointer ${
                 timeRange === '14d'
-                  ? 'bg-white text-zinc-900 shadow-xs'
-                  : 'text-zinc-600 hover:text-zinc-900'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-xs'
+                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
               }`}
             >
               14 Hari
@@ -210,14 +210,15 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
                     y1={y}
                     x2={chartWidth - paddingX}
                     y2={y}
-                    stroke="#f4f4f5"
+                    stroke="currentColor"
                     strokeDasharray="3 3"
+                    className="text-zinc-100 dark:text-zinc-800"
                   />
                   <text
                     x={paddingX - 8}
                     y={y + 3}
                     textAnchor="end"
-                    className="text-[9px] fill-zinc-400 font-mono"
+                    className="text-[9px] fill-zinc-400 dark:fill-zinc-500 font-mono"
                   >
                     {Math.round((maxOmzet * ratio) / 1000)}k
                   </text>
@@ -273,8 +274,8 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
                     r={isActive ? '5' : '3.5'}
                     className={`transition-all duration-150 ${
                       isActive
-                        ? 'fill-emerald-600 stroke-white stroke-2'
-                        : 'fill-white stroke-emerald-600 stroke-2'
+                        ? 'fill-emerald-600 stroke-white dark:stroke-zinc-900 stroke-2'
+                        : 'fill-white dark:fill-zinc-900 stroke-emerald-600 dark:stroke-emerald-400 stroke-2'
                     }`}
                   />
                   {/* Day Labels at the bottom */}
@@ -283,7 +284,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
                     y={chartHeight - 6}
                     textAnchor="middle"
                     className={`text-[9px] font-medium transition-colors ${
-                      isActive ? 'fill-emerald-700 font-bold' : 'fill-zinc-400'
+                      isActive ? 'fill-emerald-700 dark:fill-emerald-400 font-bold' : 'fill-zinc-400 dark:fill-zinc-500'
                     }`}
                   >
                     {p.label}
@@ -296,7 +297,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
           {/* Glitch-Free Fixed / Clamped Tooltip */}
           {activePoint && (
             <div
-              className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-full px-3 py-2 bg-zinc-900/95 backdrop-blur-xs text-white rounded-xl shadow-xl text-xs border border-zinc-800 transition-all duration-75"
+              className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-full px-3 py-2 bg-zinc-900/95 dark:bg-zinc-800/95 backdrop-blur-xs text-white rounded-xl shadow-xl text-xs border border-zinc-800 dark:border-zinc-700 transition-all duration-75"
               style={{
                 left: `${(activePoint.x / chartWidth) * 100}%`,
                 top: `${Math.max(16, (activePoint.y / chartHeight) * 100 - 8)}%`,
@@ -322,13 +323,13 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
       {/* Breakdown per Produk & Preferensi Pembayaran (Clean & Non-Clickable) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Top Products Breakdown */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs">
           <div className="flex items-center justify-between mb-4">
-            <h4 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-emerald-600" />
+            <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
               Kontribusi Omzet per Produk
             </h4>
-            <span className="text-[11px] text-zinc-500">Urutan Terlaris</span>
+            <span className="text-[11px] text-zinc-500 dark:text-zinc-400">Urutan Terlaris</span>
           </div>
 
           <div className="space-y-3.5">
@@ -342,41 +343,41 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
                         <img
                           src={product.imageUrl}
                           alt={product.name}
-                          className="w-7 h-7 rounded-lg object-cover ring-1 ring-zinc-200 shrink-0"
+                          className="w-7 h-7 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700 shrink-0"
                           referrerPolicy="no-referrer"
                         />
                       ) : (
-                        <div className="w-7 h-7 rounded-lg bg-zinc-100 text-zinc-500 flex items-center justify-center font-bold text-[10px] shrink-0">
+                        <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400 flex items-center justify-center font-bold text-[10px] shrink-0">
                           #{index + 1}
                         </div>
                       )}
                       <div className="truncate">
-                        <span className="font-semibold text-zinc-900 truncate block">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate block">
                           {product.name}
                         </span>
-                        <span className="text-[10px] text-zinc-500">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
                           {product.category}
                         </span>
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className="font-semibold text-zinc-900">
+                      <span className="font-semibold text-zinc-900 dark:text-zinc-100">
                         {formatRupiah(totalRevenue)}
                       </span>
-                      <span className="text-zinc-500 text-[11px] ml-1.5">
+                      <span className="text-zinc-500 dark:text-zinc-400 text-[11px] ml-1.5">
                         ({totalQty} {product.unit})
                       </span>
                     </div>
                   </div>
                   {/* Progress Bar */}
-                  <div className="w-full h-2 rounded-full bg-zinc-100 overflow-hidden">
+                  <div className="w-full h-2 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all duration-500 ${
                         index === 0
                           ? 'bg-emerald-500'
                           : index === 1
                           ? 'bg-emerald-400'
-                          : 'bg-zinc-300'
+                          : 'bg-zinc-300 dark:bg-zinc-700'
                       }`}
                       style={{ width: `${Math.max(pct, 5)}%` }}
                     />
@@ -388,18 +389,18 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
         </div>
 
         {/* Preferensi Pembayaran Pembeli - Pure Informational / Non-Clickable presentation */}
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs flex flex-col justify-between">
+        <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200/80 dark:border-zinc-800 p-5 shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-zinc-900 flex items-center gap-2">
-                <PieChart className="w-4 h-4 text-emerald-600" />
+              <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                <PieChart className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                 Preferensi Pembayaran Pembeli
               </h4>
-              <span className="text-[10px] font-medium text-zinc-400">Statistik Metode</span>
+              <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500">Statistik Metode</span>
             </div>
 
             {/* Proportional Segmented Bar */}
-            <div className="w-full h-2.5 rounded-full bg-zinc-100 overflow-hidden flex gap-0.5 my-3">
+            <div className="w-full h-2.5 rounded-full bg-zinc-100 dark:bg-zinc-800 overflow-hidden flex gap-0.5 my-3">
               {paymentStats.map((pm) =>
                 pm.percentage > 0 ? (
                   <div
@@ -413,9 +414,8 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
             </div>
 
             {/* Clean Static Breakdown List (No clickable cards) */}
-            <div className="divide-y divide-zinc-100">
+            <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {paymentStats.map((pm) => {
-                const IconComponent = pm.icon;
                 return (
                   <div
                     key={pm.name}
@@ -423,18 +423,18 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
                   >
                     <div className="flex items-center gap-2.5">
                       <div className={`w-2.5 h-2.5 rounded-full ${pm.color} shrink-0`} />
-                      <span className="font-medium text-zinc-800">{pm.name}</span>
+                      <span className="font-medium text-zinc-800 dark:text-zinc-200">{pm.name}</span>
                     </div>
 
                     <div className="flex items-center gap-4 text-right">
-                      <span className="text-[11px] text-zinc-400">
+                      <span className="text-[11px] text-zinc-400 dark:text-zinc-500">
                         {pm.count} transaksi
                       </span>
                       <div className="w-24">
-                        <span className="font-semibold text-zinc-900 block font-mono text-[11px]">
+                        <span className="font-semibold text-zinc-900 dark:text-zinc-100 block font-mono text-[11px]">
                           {formatRupiah(pm.revenue)}
                         </span>
-                        <span className="text-[10px] text-zinc-500 font-medium">
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 font-medium">
                           {pm.percentage}% dari total
                         </span>
                       </div>
@@ -445,7 +445,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ transactions, products }
             </div>
           </div>
 
-          <div className="mt-4 p-3 rounded-xl bg-zinc-50 border border-zinc-100 flex items-center justify-between text-xs text-zinc-600">
+          <div className="mt-4 p-3 rounded-xl bg-zinc-50 dark:bg-zinc-950/60 border border-zinc-100 dark:border-zinc-800 flex items-center justify-between text-xs text-zinc-600 dark:text-zinc-400">
             <span>💡 Transaksi digital (QRIS &amp; Transfer) berkontribusi mayoritas terhadap omzet.</span>
           </div>
         </div>

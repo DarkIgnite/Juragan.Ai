@@ -104,25 +104,25 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
             animate={{ opacity: 1, transform: 'scale(1) translateY(0px)' }}
             exit={{ opacity: 0, transform: 'scale(0.96) translateY(8px)' }}
             transition={{ duration: 0.22, ease: easeOutCurve }}
-            className="relative z-10 w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden"
+            className="relative z-10 w-full max-w-lg bg-white dark:bg-zinc-900 rounded-2xl shadow-xl border border-zinc-200 dark:border-zinc-800 overflow-hidden"
           >
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+            <div className="px-6 py-4 border-b border-zinc-100 dark:border-zinc-800 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 flex items-center justify-center">
                   <ShoppingCart className="w-4 h-4" />
                 </div>
                 <div>
-                  <h3 className="text-base font-semibold text-zinc-900">
+                  <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
                     Catat Penjualan Baru
                   </h3>
-                  <p className="text-xs text-zinc-700">
+                  <p className="text-xs text-zinc-700 dark:text-zinc-400">
                     Input transaksi riil untuk memperbarui omzet, laba, &amp; stok toko.
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-700 hover:bg-zinc-100 transition-colors tactile-btn"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-700 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors tactile-btn cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -130,7 +130,7 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {error && (
-            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs flex items-center gap-2">
+            <div className="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/50 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-300 text-xs flex items-center gap-2">
               <AlertCircle className="w-4 h-4 shrink-0" />
               <span>{error}</span>
             </div>
@@ -138,17 +138,17 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
 
           {/* Select Product */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-700 mb-1">
+            <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
               Pilih Produk Terjual <span className="text-rose-500">*</span>
             </label>
             <select
               id="select-sale-product"
               value={selectedProductId}
               onChange={(e) => setSelectedProductId(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all bg-white dark:bg-zinc-950 cursor-pointer"
             >
               {products.map((p) => (
-                <option key={p.id} value={p.id}>
+                <option key={p.id} value={p.id} className="dark:bg-zinc-900 dark:text-zinc-100">
                   {p.name} — {formatRupiah(p.sellingPrice)} (Sisa: {p.stock} {p.unit})
                 </option>
               ))}
@@ -158,7 +158,7 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
           {/* Quantity & Date */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                 Jumlah Terjual (Qty)
               </label>
               <input
@@ -168,12 +168,12 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
                 required
                 value={quantity || ''}
                 onChange={(e) => setQuantity(Number(e.target.value))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                 Tanggal Transaksi
               </label>
               <input
@@ -182,7 +182,7 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
                 required
                 value={date}
                 onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
             </div>
           </div>
@@ -190,17 +190,17 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
           {/* Payment Method & Customer */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                 Metode Pembayaran
               </label>
               <select
                 id="select-sale-payment"
                 value={paymentMethod}
                 onChange={(e) => setPaymentMethod(e.target.value as any)}
-                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all bg-white"
+                className="w-full px-3 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-sm text-zinc-900 dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all bg-white dark:bg-zinc-950 cursor-pointer"
               >
                 {PAYMENT_METHODS.map((method) => (
-                  <option key={method} value={method}>
+                  <option key={method} value={method} className="dark:bg-zinc-900 dark:text-zinc-100">
                     {method}
                   </option>
                 ))}
@@ -208,7 +208,7 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              <label className="block text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1">
                 Nama Pembeli / Saluran
               </label>
               <input
@@ -217,22 +217,22 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
                 placeholder="Contoh: Bu Ratna / WA Story"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-sm text-zinc-900 placeholder:text-zinc-700 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 transition-all"
               />
             </div>
           </div>
 
           {/* Live Calculation Summary */}
-          <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200 space-y-1.5 text-xs">
-            <div className="flex items-center justify-between text-zinc-700">
+          <div className="p-3.5 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/60 space-y-1.5 text-xs">
+            <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
               <span>Harga Satuan:</span>
-              <span className="font-medium text-zinc-900">{formatRupiah(unitPrice)}</span>
+              <span className="font-medium text-zinc-900 dark:text-zinc-100">{formatRupiah(unitPrice)}</span>
             </div>
-            <div className="flex items-center justify-between text-zinc-700">
+            <div className="flex items-center justify-between text-zinc-700 dark:text-zinc-300">
               <span>Total Nilai Omzet:</span>
-              <span className="font-bold text-emerald-800 text-sm">{formatRupiah(totalPrice)}</span>
+              <span className="font-bold text-emerald-800 dark:text-emerald-300 text-sm">{formatRupiah(totalPrice)}</span>
             </div>
-            <div className="flex items-center justify-between text-emerald-700 pt-1 border-t border-emerald-200/60 font-medium">
+            <div className="flex items-center justify-between text-emerald-700 dark:text-emerald-400 pt-1 border-t border-emerald-200/60 dark:border-emerald-900/60 font-medium">
               <span className="flex items-center gap-1">
                 <TrendingUp className="w-3.5 h-3.5" />
                 Estimasi Laba Bersih:
@@ -246,14 +246,14 @@ export const SaleTransactionModal: React.FC<SaleTransactionModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-xl text-xs font-medium text-zinc-700 hover:bg-zinc-100 transition-colors"
+              className="px-4 py-2.5 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               id="btn-submit-sale"
               type="submit"
-              className="px-5 py-2.5 rounded-xl text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm flex items-center gap-1.5 tactile-btn"
+              className="px-5 py-2.5 rounded-xl text-xs font-medium bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] transition-all shadow-sm flex items-center gap-1.5 tactile-btn cursor-pointer"
             >
               <CheckCircle2 className="w-4 h-4" />
               Simpan Transaksi
