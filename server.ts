@@ -544,8 +544,15 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
 
     const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim();
 
-    // Transcribe with candidate models
-    for (const model of CANDIDATE_MODELS) {
+    // Transcribe with specialized audio transcription models conforming to gemini-api skill:
+    // gemini-3.5-transcribe is dedicated for audio transcription, followed by gemini-3.8-flash and gemini-flash-latest.
+    const TRANSCRIBE_MODELS = [
+      'gemini-3.5-transcribe',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+    ];
+
+    for (const model of TRANSCRIBE_MODELS) {
       try {
         const response = await ai.models.generateContent({
           model,

@@ -264,6 +264,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const chatBottomRef = useRef<HTMLDivElement | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const currentLiveInputRef = useRef<string>('');
+  const accumulatedFinalTranscriptRef = useRef<string>('');
   const inputRef = useRef<HTMLInputElement | null>(null);
   const audioPlayerRef = useRef<HTMLAudioElement | null>(null);
   const handleSendQueryRef = useRef<(text: string) => void>(() => {});
@@ -551,85 +552,56 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   };
 
   // 4. Robust Speech-To-Text Recognition
-  // Helper to deduplicate repeating speech segments (specifically fixing Android Chrome cumulative transcript bug)
-  const extractCleanTranscript = (results: any): string => {
-    if (!results || results.length === 0) return '';
+  // Accurately extracts clean transcript from Web Speech API results across desktop and mobile browsers
+  const extractCleanTranscript = (
+    results: any
+  ): { fullText: string; finalTranscript: string; interimTranscript: string } => {
+    if (!results || results.length === 0) {
+      return { fullText: '', finalTranscript: '', interimTranscript: '' };
+    }
 
-    const chunks: string[] = [];
+    const finalParts: string[] = [];
+    const interimParts: string[] = [];
+
     for (let i = 0; i < results.length; i++) {
-      const piece = results[i]?.[0]?.transcript?.trim();
-      if (piece) {
-        chunks.push(piece);
-      }
-    }
+      const res = results[i];
+      if (!res || !res[0]) continue;
+      const text = (res[0].transcript || '').trim();
+      if (!text) continue;
 
-    if (chunks.length === 0) return '';
-    if (chunks.length === 1) return chunks[0];
-
-    // Android Chrome cumulative check:
-    // If the last chunk is a superset containing the first chunk,
-    // then the last chunk is the canonical full sentence recognized by Google Speech Services!
-    const firstChunk = chunks[0].toLowerCase();
-    const lastChunk = chunks[chunks.length - 1];
-    if (lastChunk.toLowerCase().startsWith(firstChunk) && lastChunk.length >= chunks[0].length) {
-      return lastChunk.trim();
-    }
-
-    // Sequential merge with boundary overlap detection
-    let merged = '';
-    for (let i = 0; i < chunks.length; i++) {
-      const chunk = chunks[i].trim();
-      if (!merged) {
-        merged = chunk;
-        continue;
-      }
-
-      const lowerMerged = merged.toLowerCase();
-      const lowerChunk = chunk.toLowerCase();
-
-      // Already contains chunk
-      if (lowerMerged.includes(lowerChunk)) {
-        continue;
-      }
-
-      // Chunk starts with already merged text (Android progressive update)
-      if (lowerChunk.startsWith(lowerMerged)) {
-        merged = chunk;
-        continue;
-      }
-
-      // Check word-level overlap
-      const mergedWords = merged.split(/\s+/);
-      const chunkWords = chunk.split(/\s+/);
-      let overlapCount = 0;
-      const maxLookback = Math.min(mergedWords.length, chunkWords.length);
-
-      for (let len = maxLookback; len >= 1; len--) {
-        const tail = mergedWords.slice(-len).join(' ').toLowerCase();
-        const head = chunkWords.slice(0, len).join(' ').toLowerCase();
-        if (tail === head) {
-          overlapCount = len;
-          break;
-        }
-      }
-
-      if (overlapCount > 0) {
-        const nonOverlapping = chunkWords.slice(overlapCount);
-        if (nonOverlapping.length > 0) {
-          merged = merged + ' ' + nonOverlapping.join(' ');
-        }
+      if (res.isFinal) {
+        finalParts.push(text);
       } else {
-        merged = merged + ' ' + chunk;
+        interimParts.push(text);
       }
     }
 
-    return merged.trim();
+    const finalAcc = finalParts.join(' ').trim();
+    const interimAcc = interimParts.join(' ').trim();
+
+    // In Android Chrome, interim results may be cumulative (already containing all previous speech)
+    let combined = finalAcc;
+    if (interimAcc) {
+      if (!combined) {
+        combined = interimAcc;
+      } else if (interimAcc.toLowerCase().startsWith(combined.toLowerCase())) {
+        combined = interimAcc;
+      } else if (!combined.toLowerCase().includes(interimAcc.toLowerCase())) {
+        combined = `${combined} ${interimAcc}`;
+      }
+    }
+
+    return {
+      fullText: combined.trim(),
+      finalTranscript: finalAcc,
+      interimTranscript: interimAcc,
+    };
   };
 
   // Helper to transcribe raw recorded audio buffer via Gemini API
   const transcribeAudioBuffer = async (audioBlob: Blob): Promise<string> => {
     try {
-      if (!audioBlob || audioBlob.size < 500) {
+      if (!audioBlob || audioBlob.size < 400) {
         return '';
       }
 
@@ -678,18 +650,31 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognition.onstart = () => {
         setIsListening(true);
         setMicPermissionDenied(false);
-        setInterimTranscript('');
       };
 
       recognition.onresult = (event: any) => {
-        const liveSpokenWords = extractCleanTranscript(event.results);
+        const { fullText, interimTranscript } = extractCleanTranscript(event.results);
 
-        if (liveSpokenWords) {
-          // Cleanly set spoken words without stutter or repeating phrases
-          setInputText(liveSpokenWords);
-          currentLiveInputRef.current = liveSpokenWords;
-          setTranscript(liveSpokenWords);
-          setVoiceVolumeScale(1.15 + Math.min(liveSpokenWords.length * 0.01, 0.35));
+        // Merge with any preserved accumulated text from earlier recognition restarts
+        let words = fullText;
+        if (accumulatedFinalTranscriptRef.current) {
+          const prefix = accumulatedFinalTranscriptRef.current.trim();
+          if (!words) {
+            words = prefix;
+          } else if (
+            !words.toLowerCase().startsWith(prefix.toLowerCase()) &&
+            !prefix.toLowerCase().includes(words.toLowerCase())
+          ) {
+            words = `${prefix} ${words}`;
+          }
+        }
+
+        if (words) {
+          setInputText(words);
+          currentLiveInputRef.current = words;
+          setTranscript(words);
+          setInterimTranscript(interimTranscript);
+          setVoiceVolumeScale(1.15 + Math.min(words.length * 0.01, 0.4));
 
           // Auto-scroll input to end without taking focus or opening mobile keyboard
           if (inputRef.current) {
@@ -701,7 +686,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Automatically send query 2000ms after speech pauses
+          // Generous silence timeout (3.5s) to allow natural pauses in speech
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current) {
               const textToSend = currentLiveInputRef.current.trim();
@@ -709,11 +694,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 stopListening(true);
               }
             }
-          }, 2000);
+          }, 3500);
         }
       };
 
       recognition.onspeechend = () => {
+        // When user pauses, give a comfortable 3.5s window before submitting
         const textToSend = currentLiveInputRef.current.trim();
         if (textToSend && isListeningDesiredRef.current) {
           if (silenceTimerRef.current) {
@@ -726,7 +712,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 stopListening(true);
               }
             }
-          }, 1500);
+          }, 3500);
         }
       };
 
@@ -737,8 +723,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         }
 
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          // If mediaStream is already active via getUserMedia, do not trigger scary UI error;
-          // MediaRecorder and Gemini server fallback will cleanly transcribe the speech!
           if (!mediaStreamRef.current?.active) {
             isListeningDesiredRef.current = false;
             setIsListening(false);
@@ -748,36 +732,35 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       };
 
       recognition.onend = () => {
-        // If listening is still desired
+        // If listening is still desired by user, seamlessly restart without dropping words!
         if (isListeningDesiredRef.current) {
-          const spokenText = currentLiveInputRef.current.trim();
-          // If the user already finished speaking a sentence, automatically submit!
-          if (spokenText && spokenText.length > 2) {
-            stopListening(true);
-          } else {
-            // User hasn't spoken yet or paused:
-            // Smoothly restart a fresh instance
-            setTimeout(() => {
-              if (isListeningDesiredRef.current) {
-                try {
-                  if (recognitionRef.current) {
-                    recognitionRef.current.onstart = null;
-                    recognitionRef.current.onresult = null;
-                    recognitionRef.current.onspeechend = null;
-                    recognitionRef.current.onerror = null;
-                    recognitionRef.current.onend = null;
-                    try { recognitionRef.current.abort(); } catch {}
-                    recognitionRef.current = null;
-                  }
-                  const fresh = createSpeechRecognitionInstance();
-                  recognitionRef.current = fresh;
-                  fresh?.start();
-                } catch (e) {
-                  console.warn('Recognition restart error:', e);
-                }
-              }
-            }, 150);
+          const currentWords = currentLiveInputRef.current.trim();
+          if (currentWords) {
+            accumulatedFinalTranscriptRef.current = currentWords;
           }
+
+          setTimeout(() => {
+            if (isListeningDesiredRef.current) {
+              try {
+                if (recognitionRef.current) {
+                  recognitionRef.current.onstart = null;
+                  recognitionRef.current.onresult = null;
+                  recognitionRef.current.onspeechend = null;
+                  recognitionRef.current.onerror = null;
+                  recognitionRef.current.onend = null;
+                  try {
+                    recognitionRef.current.abort();
+                  } catch {}
+                  recognitionRef.current = null;
+                }
+                const fresh = createSpeechRecognitionInstance();
+                recognitionRef.current = fresh;
+                fresh?.start();
+              } catch (e) {
+                console.warn('Recognition restart error:', e);
+              }
+            }
+          }, 60);
         } else {
           setIsListening(false);
         }
@@ -789,48 +772,15 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
   }, []);
 
-  const startListening = async () => {
-    if (isSpeaking) {
-      stopSpeaking();
+  // Set up microphone stream and MediaRecorder asynchronously without blocking Web Speech API
+  const initMicrophoneAndRecorder = async (isWebSpeechActive: boolean) => {
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      return;
     }
 
-    setTranscript('');
-    setInterimTranscript('');
-    setInputText('');
-    currentLiveInputRef.current = '';
-    isListeningDesiredRef.current = true;
-    setIsListening(true);
-    setMicPermissionDenied(false);
-
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = null;
-    }
-
-    // Step 1: Clean previous recognition & recorder instances
-    if (recognitionRef.current) {
-      try {
-        recognitionRef.current.onstart = null;
-        recognitionRef.current.onresult = null;
-        recognitionRef.current.onspeechend = null;
-        recognitionRef.current.onerror = null;
-        recognitionRef.current.onend = null;
-        recognitionRef.current.abort();
-      } catch {}
-      recognitionRef.current = null;
-    }
-
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      try {
-        mediaRecorderRef.current.stop();
-      } catch {}
-    }
-    recordedAudioChunksRef.current = [];
-
-    // Step 2: Request real microphone stream (Crucial for PC browser & iframe permissions!)
-    let stream: MediaStream | null = mediaStreamRef.current;
-    if (!stream || !stream.active) {
-      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    try {
+      let stream = mediaStreamRef.current;
+      if (!stream || !stream.active) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({
             audio: {
@@ -842,85 +792,102 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           mediaStreamRef.current = stream;
           setMicPermissionDenied(false);
         } catch (mediaErr: any) {
-          console.warn('Microphone getUserMedia error:', mediaErr);
+          console.warn('Microphone getUserMedia warning:', mediaErr);
           if (mediaErr?.name === 'NotAllowedError' || mediaErr?.name === 'PermissionDeniedError') {
-            setMicPermissionDenied(true);
-            setIsListening(false);
-            isListeningDesiredRef.current = false;
+            if (!isWebSpeechActive) {
+              setMicPermissionDenied(true);
+              setIsListening(false);
+              isListeningDesiredRef.current = false;
+            }
             return;
           }
         }
       }
-    }
 
-    if (!isListeningDesiredRef.current) return;
+      if (!isListeningDesiredRef.current || !stream || !stream.active) {
+        return;
+      }
 
-    // Step 3: Setup Audio Analyser for live visual feedback from PC microphone
-    if (stream) {
+      // AudioContext for visual waveform
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        if (AudioCtx && !audioContextRef.current) {
-          const ctx = new AudioCtx();
-          const analyser = ctx.createAnalyser();
-          analyser.fftSize = 64;
-          const source = ctx.createMediaStreamSource(stream);
-          source.connect(analyser);
-          audioContextRef.current = ctx;
-          analyserRef.current = analyser;
+        if (AudioCtx) {
+          if (!audioContextRef.current) {
+            const ctx = new AudioCtx();
+            if (ctx.state === 'suspended') {
+              await ctx.resume();
+            }
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 64;
+            const source = ctx.createMediaStreamSource(stream);
+            source.connect(analyser);
+            audioContextRef.current = ctx;
+            analyserRef.current = analyser;
+          } else if (audioContextRef.current.state === 'suspended') {
+            await audioContextRef.current.resume();
+          }
         }
       } catch (e) {
-        console.warn('AudioContext init error:', e);
+        console.warn('AudioContext setup warning:', e);
       }
-    }
 
-    // Step 4: Initialize MediaRecorder (Dual engine fallback for PC Chrome/Firefox/Edge/Brave)
-    if (stream && typeof MediaRecorder !== 'undefined') {
-      try {
-        const preferredTypes = [
-          'audio/webm;codecs=opus',
-          'audio/webm',
-          'audio/ogg;codecs=opus',
-          'audio/mp4',
-          '',
-        ];
-        const chosenType = preferredTypes.find((t) => !t || MediaRecorder.isTypeSupported(t)) || '';
-        const rec = chosenType ? new MediaRecorder(stream, { mimeType: chosenType }) : new MediaRecorder(stream);
-        mediaRecorderRef.current = rec;
-        recordedAudioChunksRef.current = [];
-
-        rec.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            recordedAudioChunksRef.current.push(e.data);
+      // MediaRecorder for fallback transcription
+      if (typeof MediaRecorder !== 'undefined') {
+        try {
+          if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            try {
+              mediaRecorderRef.current.stop();
+            } catch {}
           }
-        };
+          recordedAudioChunksRef.current = [];
 
-        rec.start(200);
-      } catch (e) {
-        console.warn('MediaRecorder error:', e);
-      }
-    }
+          const preferredTypes = [
+            'audio/webm;codecs=opus',
+            'audio/webm',
+            'audio/ogg;codecs=opus',
+            'audio/mp4',
+            '',
+          ];
+          const chosenType = preferredTypes.find((t) => !t || MediaRecorder.isTypeSupported(t)) || '';
+          const rec = chosenType ? new MediaRecorder(stream, { mimeType: chosenType }) : new MediaRecorder(stream);
+          mediaRecorderRef.current = rec;
 
-    // Step 5: Start Web Speech API for immediate live transcription
-    try {
-      const freshRecognition = createSpeechRecognitionInstance();
-      recognitionRef.current = freshRecognition;
-      if (freshRecognition) {
-        freshRecognition.start();
+          rec.ondataavailable = (e) => {
+            if (e.data && e.data.size > 0) {
+              recordedAudioChunksRef.current.push(e.data);
+            }
+          };
+
+          rec.start(250);
+        } catch (e) {
+          console.warn('MediaRecorder error:', e);
+        }
       }
     } catch (err) {
-      console.warn('Recognition start exception:', err);
+      console.warn('initMicrophoneAndRecorder error:', err);
     }
   };
 
-  const stopListening = async (shouldAutoSubmit: boolean = false) => {
-    isListeningDesiredRef.current = false;
-    setIsListening(false);
+  const startListening = () => {
+    if (isSpeaking) {
+      stopSpeaking();
+    }
+
+    setTranscript('');
+    setInterimTranscript('');
+    setInputText('');
+    currentLiveInputRef.current = '';
+    accumulatedFinalTranscriptRef.current = '';
+    isListeningDesiredRef.current = true;
+    setIsListening(true);
+    setMicPermissionDenied(false);
 
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
     }
 
+    // Step 1: Clean previous recognition instance
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onstart = null;
@@ -933,20 +900,50 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognitionRef.current = null;
     }
 
-    const textToSend = (currentLiveInputRef.current || inputText).trim();
-
-    // If Web Speech API captured text, send it immediately
-    if (textToSend && textToSend.length > 1) {
-      if (shouldAutoSubmit) {
-        handleSendQueryRef.current(textToSend);
+    // Step 2: START SPEECH RECOGNITION IMMEDIATELY & SYNCHRONOUSLY!
+    // No async delay! The very first word spoken by the user is caught right away!
+    let webSpeechStarted = false;
+    try {
+      const freshRecognition = createSpeechRecognitionInstance();
+      recognitionRef.current = freshRecognition;
+      if (freshRecognition) {
+        freshRecognition.start();
+        webSpeechStarted = true;
       }
-      return;
+    } catch (err) {
+      console.warn('Recognition start exception:', err);
     }
 
-    // If no text captured via Web Speech API, fall back to MediaRecorder + Gemini server transcription
+    // Step 3: Initialize media stream for live audio analysis & fallback recording asynchronously
+    initMicrophoneAndRecorder(webSpeechStarted);
+  };
+
+  const stopListening = async (shouldAutoSubmit: boolean = false) => {
+    isListeningDesiredRef.current = false;
+    setIsListening(false);
+
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+
+    // Stop recognition gracefully so any in-flight words are finalized
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.onend = null;
+        recognitionRef.current.stop();
+      } catch {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
+      recognitionRef.current = null;
+    }
+
+    // Stop MediaRecorder if running
+    let recordedBlob: Blob | null = null;
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
       try {
-        setIsTranscribingAudio(true);
         const stopPromise = new Promise<Blob>((resolve) => {
           if (!mediaRecorderRef.current) {
             resolve(new Blob(recordedAudioChunksRef.current, { type: 'audio/webm' }));
@@ -956,24 +953,61 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             const mime = mediaRecorderRef.current?.mimeType || 'audio/webm';
             resolve(new Blob(recordedAudioChunksRef.current, { type: mime }));
           };
-          mediaRecorderRef.current.stop();
+          try {
+            mediaRecorderRef.current.stop();
+          } catch {
+            resolve(new Blob(recordedAudioChunksRef.current, { type: 'audio/webm' }));
+          }
         });
+        recordedBlob = await stopPromise;
+      } catch (e) {
+        console.warn('MediaRecorder stop error:', e);
+      }
+    }
 
-        const audioBlob = await stopPromise;
-        const transcribedText = await transcribeAudioBuffer(audioBlob);
+    // Release microphone tracks to completely eliminate hardware conflicts & prevent locked mics!
+    if (mediaStreamRef.current) {
+      try {
+        mediaStreamRef.current.getTracks().forEach((track) => {
+          track.stop();
+        });
+        mediaStreamRef.current = null;
+      } catch {}
+    }
+
+    // Suspend audio context
+    if (audioContextRef.current && audioContextRef.current.state === 'running') {
+      try {
+        audioContextRef.current.suspend();
+      } catch {}
+    }
+
+    // Check captured text
+    let textToSend = (currentLiveInputRef.current || inputText).trim();
+
+    // Fallback: If Web Speech API captured nothing, but we recorded audio, transcribe with Gemini AI
+    if (!textToSend && recordedBlob && recordedBlob.size > 800) {
+      try {
+        setIsTranscribingAudio(true);
+        const transcribedText = await transcribeAudioBuffer(recordedBlob);
         setIsTranscribingAudio(false);
 
         if (transcribedText && transcribedText.length > 1) {
+          textToSend = transcribedText;
           setInputText(transcribedText);
           currentLiveInputRef.current = transcribedText;
           setTranscript(transcribedText);
-          if (shouldAutoSubmit) {
-            handleSendQueryRef.current(transcribedText);
-          }
         }
       } catch (err) {
-        console.warn('Audio fallback error:', err);
+        console.warn('Fallback audio transcription error:', err);
         setIsTranscribingAudio(false);
+      }
+    }
+
+    // Submit query if requested and text exists
+    if (textToSend && textToSend.length > 1) {
+      if (shouldAutoSubmit) {
+        handleSendQueryRef.current(textToSend);
       }
     }
   };
@@ -999,6 +1033,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     setTranscript('');
     setInterimTranscript('');
     currentLiveInputRef.current = '';
+    accumulatedFinalTranscriptRef.current = '';
 
     const userMsg: VoiceConsultationMessage = {
       id: 'msg-' + Date.now(),
