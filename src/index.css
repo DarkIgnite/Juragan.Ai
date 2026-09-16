@@ -34,3 +34,30 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Voice Orb Expanding Ripple Waves */
+@keyframes orbRipple {
+  0% {
+    transform: scale(0.95);
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    transform: scale(2.3);
+    opacity: 0;
+  }
+}
+
+.animate-orb-ripple-1 {
+  animation: orbRipple 2.2s cubic-bezier(0.1, 0.4, 0.7, 1) infinite;
+}
+
+.animate-orb-ripple-2 {
+  animation: orbRipple 2.2s cubic-bezier(0.1, 0.4, 0.7, 1) infinite 0.75s;
+}
+
+.animate-orb-ripple-3 {
+  animation: orbRipple 2.2s cubic-bezier(0.1, 0.4, 0.7, 1) infinite 1.5s;
+}

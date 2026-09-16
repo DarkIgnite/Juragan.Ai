@@ -273,6 +273,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedAudioChunksRef = useRef<Blob[]>([]);
   const volumeBarRef = useRef<HTMLDivElement | null>(null);
+  const isUserSpeakingLiveRef = useRef<boolean>(false);
+  const lastSpeechTimestampRef = useRef<number>(0);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const audioAnimRef = useRef<number | null>(null);
   const [isTranscribingAudio, setIsTranscribingAudio] = useState<boolean>(false);
@@ -574,12 +576,20 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
   // Stop physical volume meter animation
   const stopMicAndVolumeMeter = () => {
+    isUserSpeakingLiveRef.current = false;
+    lastSpeechTimestampRef.current = 0;
     if (audioAnimRef.current) {
       cancelAnimationFrame(audioAnimRef.current);
       audioAnimRef.current = null;
     }
     if (volumeBarRef.current) {
       volumeBarRef.current.style.width = '0%';
+    }
+    if (typeof document !== 'undefined') {
+      const extraBars = document.querySelectorAll('.live-sound-signal-bar');
+      extraBars.forEach((bar) => {
+        (bar as HTMLElement).style.width = '0%';
+      });
     }
   };
 
@@ -600,11 +610,62 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     }
   };
 
-  // Prompt browser for microphone permission & connect real-time hardware sound level meter (non-blocking)
+  // Helper to run continuous live visual sound signal loop (works on both PC hardware analyser & Mobile speech events)
+  const startMeterAnimationLoop = (analyser: AnalyserNode | null, dataArray: Uint8Array | null) => {
+    const updateMeter = () => {
+      if (!isListeningDesiredRef.current) return;
+
+      let pct = 0;
+      if (analyser && dataArray && mediaStreamRef.current && mediaStreamRef.current.active) {
+        analyser.getByteFrequencyData(dataArray);
+        let sum = 0;
+        for (let i = 0; i < dataArray.length; i++) {
+          sum += dataArray[i];
+        }
+        const avg = sum / dataArray.length;
+        pct = Math.min(100, Math.round((avg / 50) * 100));
+      } else {
+        // Universal Speech Activity Visualizer (Ideal for Mobile browsers without locking hardware mic)
+        const now = Date.now();
+        const isSpeakingRecently = (now - lastSpeechTimestampRef.current) < 2200;
+        const t = now / 110;
+
+        if (isUserSpeakingLiveRef.current || isSpeakingRecently) {
+          // Energetically bouncing audio wave level between 52% and 96%
+          pct = Math.round(
+            56 + Math.sin(t * 1.6) * 22 + Math.cos(t * 2.7) * 14 + Math.sin(t * 4.3) * 8
+          );
+        } else {
+          // Gentle ambient breathing level (6% to 14%) indicating armed and listening mic
+          pct = Math.round(9 + Math.sin(t * 0.5) * 5);
+        }
+        pct = Math.max(5, Math.min(98, pct));
+      }
+
+      if (volumeBarRef.current) {
+        volumeBarRef.current.style.width = `${pct}%`;
+      }
+      if (typeof document !== 'undefined') {
+        const extraBars = document.querySelectorAll('.live-sound-signal-bar');
+        extraBars.forEach((bar) => {
+          (bar as HTMLElement).style.width = `${pct}%`;
+        });
+      }
+
+      audioAnimRef.current = requestAnimationFrame(updateMeter);
+    };
+
+    if (audioAnimRef.current) {
+      cancelAnimationFrame(audioAnimRef.current);
+    }
+    audioAnimRef.current = requestAnimationFrame(updateMeter);
+  };
+
+  // Prompt browser for microphone permission & connect real-time sound level meter
   const initMicAndVolumeMeter = async (): Promise<MediaStream | null> => {
     // ON MOBILE DEVICES (Android/iOS): The hardware microphone is strictly EXCLUSIVE!
     // Running getUserMedia simultaneously starves SpeechRecognition, causing zero speech detection and 4-second timeout.
-    // On mobile, we give SpeechRecognition 100% exclusive access to the microphone.
+    // On mobile, we give SpeechRecognition 100% exclusive access to the microphone, while driving the signal meter via live speech events.
     const isMobile =
       typeof window !== 'undefined' &&
       (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
@@ -613,10 +674,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         window.innerWidth <= 768);
 
     if (isMobile) {
+      startMeterAnimationLoop(null, null);
       return null;
     }
 
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      startMeterAnimationLoop(null, null);
       return null;
     }
 
@@ -633,7 +696,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       setMicPermissionDenied(false);
       setSttError('');
 
-      // Setup live hardware volume level meter (pure DOM update, 0 React re-renders)
+      // Setup live hardware volume level meter on desktop PC
       try {
         const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioCtx) {
@@ -651,37 +714,19 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           source.connect(analyser);
 
           const dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-          const updateMeter = () => {
-            if (!mediaStreamRef.current || !mediaStreamRef.current.active) return;
-            analyser.getByteFrequencyData(dataArray);
-
-            let sum = 0;
-            for (let i = 0; i < dataArray.length; i++) {
-              sum += dataArray[i];
-            }
-            const avg = sum / dataArray.length;
-            const pct = Math.min(100, Math.round((avg / 50) * 100));
-
-            if (volumeBarRef.current) {
-              volumeBarRef.current.style.width = `${pct}%`;
-            }
-
-            audioAnimRef.current = requestAnimationFrame(updateMeter);
-          };
-
-          if (audioAnimRef.current) {
-            cancelAnimationFrame(audioAnimRef.current);
-          }
-          audioAnimRef.current = requestAnimationFrame(updateMeter);
+          startMeterAnimationLoop(analyser, dataArray);
+        } else {
+          startMeterAnimationLoop(null, null);
         }
       } catch (audioErr) {
-        console.warn('[Juragan.AI] Volume meter warning:', audioErr);
+        console.warn('[Juragan.AI] Volume meter AudioContext warning:', audioErr);
+        startMeterAnimationLoop(null, null);
       }
 
       return stream;
     } catch (err: any) {
       console.warn('[Juragan.AI] getUserMedia warning:', err);
+      startMeterAnimationLoop(null, null);
       if (err?.name === 'NotAllowedError' || err?.name === 'PermissionDeniedError') {
         setMicPermissionDenied(true);
         setSttError('Izin mikrofon belum aktif di browser. Klik ikon gembok / izin di sebelah URL untuk mengizinkan mic.');
@@ -741,8 +786,34 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         setSttError('');
       };
 
+      recognition.onspeechstart = () => {
+        isUserSpeakingLiveRef.current = true;
+        lastSpeechTimestampRef.current = Date.now();
+      };
+
+      recognition.onspeechend = () => {
+        isUserSpeakingLiveRef.current = false;
+      };
+
+      recognition.onsoundstart = () => {
+        isUserSpeakingLiveRef.current = true;
+        lastSpeechTimestampRef.current = Date.now();
+      };
+
+      recognition.onsoundend = () => {
+        isUserSpeakingLiveRef.current = false;
+      };
+
+      recognition.onaudiostart = () => {
+        lastSpeechTimestampRef.current = Date.now();
+      };
+
       recognition.onresult = (event: any) => {
         if (!event || !event.results || event.results.length === 0) return;
+
+        // User speech detected - update live activity timestamp for visualizer
+        isUserSpeakingLiveRef.current = true;
+        lastSpeechTimestampRef.current = Date.now();
 
         // Collect all transcripts across result items
         const rawChunks: string[] = [];
@@ -803,12 +874,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Auto-submit after 1.5 seconds of silence when user stops talking
+          // Auto-submit after 3.5 seconds of silence when user stops talking (allows natural thinking pause)
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current && currentLiveInputRef.current.trim().length > 1) {
               stopListening(true);
             }
-          }, 1500);
+          }, 3500);
         }
       };
 
@@ -1162,7 +1233,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4 overflow-hidden">
           {/* Backdrop with soft blur */}
           <motion.div
             initial={{ opacity: 0 }}
@@ -1172,40 +1243,40 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             className="fixed inset-0 bg-zinc-900/40 backdrop-blur-sm"
           />
 
-          {/* Modal Dialog (100% White Mode) */}
+          {/* Modal Dialog (100% White Mode, 1-screen responsive height without page scrolling on mobile) */}
           <motion.div
             initial={{ opacity: 0, scale: 0.96, y: 15 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 15 }}
             transition={{ duration: 0.25, ease: easeOutCurve }}
-            className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl border border-zinc-200/90 overflow-hidden flex flex-col z-10"
+            className="relative w-full h-[100dvh] sm:h-auto sm:max-h-[90vh] max-w-2xl bg-white rounded-none sm:rounded-3xl shadow-2xl border-0 sm:border border-zinc-200/90 overflow-hidden flex flex-col z-10"
           >
             {/* Top Bar (White Mode) */}
-            <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center justify-between bg-white">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-2xl bg-gradient-to-tr from-blue-500 via-emerald-500 to-amber-500 p-[1.5px] flex items-center justify-center shadow-xs">
+            <div className="px-4 py-2.5 sm:px-5 sm:py-3.5 border-b border-zinc-100 flex items-center justify-between bg-white shrink-0">
+              <div className="flex items-center gap-2.5 sm:gap-3">
+                <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-gradient-to-tr from-blue-500 via-emerald-500 to-amber-500 p-[1.5px] flex items-center justify-center shadow-xs shrink-0">
                   <div className="w-full h-full bg-white rounded-[14px] flex items-center justify-center">
                     <Sparkles className="w-4 h-4 text-emerald-600" />
                   </div>
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-bold text-zinc-900 tracking-tight">
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-zinc-900 tracking-tight">
                       Juragan Voice AI
                     </h3>
-                    <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
+                    <span className="px-1.5 sm:px-2 py-0.5 rounded-full text-[9px] sm:text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       Bahasa Indonesia
                     </span>
                   </div>
-                  <p className="text-[11px] text-zinc-500">
-                    Toko: <strong className="text-zinc-800">{currentUser.storeName}</strong> ({products.length} produk terhubung)
+                  <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate max-w-[200px] sm:max-w-none">
+                    Toko: <strong className="text-zinc-800">{currentUser.storeName}</strong> ({products.length} produk)
                   </p>
                 </div>
               </div>
 
               {/* Controls */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <div className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-zinc-50 border border-zinc-200 text-[11px] font-medium text-zinc-600">
                   <Radio className="w-3 h-3 text-emerald-600" />
                   <span className="truncate max-w-[120px]">{activeVoiceName}</span>
@@ -1218,7 +1289,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     if (next) stopSpeaking();
                   }}
                   title={isMuted ? 'Nyalakan Suara AI' : 'Bisukan Suara AI'}
-                  className={`p-2 rounded-xl border transition-all ${
+                  className={`p-1.5 sm:p-2 rounded-xl border transition-all ${
                     isMuted
                       ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                       : 'bg-zinc-50 border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100'
@@ -1232,14 +1303,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   title="Buka di Tab Baru (Untuk Izin Mikrofon Penuh Browser)"
-                  className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center"
+                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100 transition-colors flex items-center justify-center"
                 >
                   <ExternalLink className="w-4 h-4" />
                 </a>
 
                 <button
                   onClick={handleClose}
-                  className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
+                  className="p-1.5 sm:p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -1247,7 +1318,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             </div>
 
             {/* Middle Stage: Dynamic Visual Waveform & Voice Circular Orb */}
-            <div className="relative py-7 px-4 flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-50/90 via-white to-zinc-50/50 border-b border-zinc-100 shrink-0">
+            <div className="relative py-2 sm:py-4 px-3 sm:px-4 flex flex-col items-center justify-center overflow-hidden bg-gradient-to-b from-zinc-50/90 via-white to-zinc-50/50 border-b border-zinc-100 shrink-0">
               {/* Fluid Visual Wave Canvas across the stage */}
               <div className="absolute inset-0 pointer-events-none opacity-90">
                 <WaveformVisualizer
@@ -1256,155 +1327,196 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 />
               </div>
 
-              {/* Outer Pulsing Soft Aura Rings */}
-              <div
-                className={`absolute w-52 h-52 rounded-full pointer-events-none transition-all duration-500 ease-out ${
-                  isSpeaking
-                    ? 'scale-125 opacity-70 animate-pulse bg-[radial-gradient(circle,rgba(66,133,244,0.18)_0%,rgba(52,168,83,0.08)_55%,transparent_75%)]'
-                    : isListening
-                    ? 'scale-120 opacity-80 animate-ping duration-1000 bg-[radial-gradient(circle,rgba(16,185,129,0.22)_0%,rgba(66,133,244,0.1)_60%,transparent_80%)]'
-                    : 'scale-100 opacity-20 bg-[radial-gradient(circle,rgba(66,133,244,0.08)_0%,transparent_65%)]'
-                }`}
-              />
+              {/* Center Voice Orb with dynamic wave ripple rings */}
+              <div className="relative flex items-center justify-center">
+                {/* Sonar Ripple Waves when Speaking or Listening */}
+                {(isSpeaking || isListening) && (
+                  <>
+                    <div
+                      className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-full pointer-events-none animate-orb-ripple-1 ${
+                        isSpeaking
+                          ? 'border-2 border-blue-400/50 bg-blue-400/10'
+                          : 'border-2 border-emerald-400/60 bg-emerald-400/15'
+                      }`}
+                    />
+                    <div
+                      className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-full pointer-events-none animate-orb-ripple-2 ${
+                        isSpeaking
+                          ? 'border-2 border-teal-400/40 bg-teal-400/10'
+                          : 'border-2 border-teal-400/50 bg-teal-400/10'
+                      }`}
+                    />
+                    <div
+                      className={`absolute w-20 h-20 sm:w-28 sm:h-28 rounded-full pointer-events-none animate-orb-ripple-3 ${
+                        isSpeaking
+                          ? 'border border-amber-400/30 bg-amber-400/5'
+                          : 'border border-blue-400/40 bg-blue-400/10'
+                      }`}
+                    />
+                  </>
+                )}
 
-              <div
-                className={`absolute w-40 h-40 rounded-full pointer-events-none transition-all duration-300 ease-out ${
-                  isSpeaking
-                    ? 'scale-115 opacity-80 bg-[radial-gradient(circle,rgba(66,133,244,0.25)_0%,rgba(234,67,53,0.12)_60%,transparent_75%)]'
-                    : isListening
-                    ? 'scale-110 opacity-90 animate-pulse bg-[radial-gradient(circle,rgba(16,185,129,0.28)_0%,transparent_70%)]'
-                    : 'scale-100 opacity-30 bg-[radial-gradient(circle,rgba(52,168,83,0.12)_0%,transparent_70%)]'
-                }`}
-              />
-
-              {/* Center Voice Orb */}
-              <div
-                onClick={toggleListening}
-                className={`relative w-28 h-28 sm:w-32 sm:h-32 rounded-full cursor-pointer select-none group flex items-center justify-center z-10 transition-transform duration-200 active:scale-95 ${
-                  isSpeaking ? 'scale-105' : isListening ? 'scale-105' : 'hover:scale-105'
-                }`}
-              >
-                {/* Multi-gradient ring */}
+                {/* Outer Pulsing Soft Aura Rings */}
                 <div
-                  className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                  className={`absolute w-36 h-36 sm:w-48 sm:h-48 rounded-full pointer-events-none transition-all duration-500 ease-out ${
                     isSpeaking
-                      ? 'bg-gradient-to-tr from-blue-500 via-emerald-400 to-amber-400 shadow-[0_10px_35px_rgba(66,133,244,0.35)]'
+                      ? 'scale-125 opacity-70 animate-pulse bg-[radial-gradient(circle,rgba(66,133,244,0.18)_0%,rgba(52,168,83,0.08)_55%,transparent_75%)]'
                       : isListening
-                      ? 'bg-gradient-to-tr from-emerald-500 via-teal-400 to-blue-500 shadow-[0_10px_35px_rgba(16,185,129,0.35)] animate-pulse'
-                      : isLoading
-                      ? 'bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500 shadow-[0_10px_30px_rgba(251,188,5,0.3)] animate-spin'
-                      : 'bg-gradient-to-tr from-blue-500 via-emerald-500 to-teal-400 shadow-[0_8px_25px_rgba(16,185,129,0.25)] group-hover:shadow-[0_10px_35px_rgba(16,185,129,0.35)]'
+                      ? 'scale-120 opacity-80 animate-ping duration-1000 bg-[radial-gradient(circle,rgba(16,185,129,0.22)_0%,rgba(66,133,244,0.1)_60%,transparent_80%)]'
+                      : 'scale-100 opacity-20 bg-[radial-gradient(circle,rgba(66,133,244,0.08)_0%,transparent_65%)]'
                   }`}
                 />
 
-                {/* Inner Core: Crisp White Surface */}
-                <div className="absolute inset-1.5 rounded-full bg-white shadow-inner flex items-center justify-center">
-                  {isLoading ? (
-                    <div className="flex items-center gap-1">
-                      <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" />
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce delay-100" />
-                      <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce delay-200" />
-                    </div>
-                  ) : isSpeaking ? (
-                    <div className="flex items-center gap-1 h-8">
-                      {[0.4, 0.9, 0.6, 1.0, 0.7, 0.85, 0.4].map((h, i) => (
-                        <span
-                          key={i}
-                          style={{ height: `${h * 26}px` }}
-                          className={`w-1 rounded-full animate-pulse ${
-                            i % 4 === 0
-                              ? 'bg-blue-500'
-                              : i % 4 === 1
-                              ? 'bg-emerald-500'
-                              : i % 4 === 2
-                              ? 'bg-amber-500'
-                              : 'bg-rose-500'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                  ) : isTranscribingAudio ? (
-                    <div className="flex flex-col items-center justify-center text-emerald-600">
-                      <Sparkles className="w-8 h-8 animate-spin text-emerald-600" />
-                      <span className="text-[10px] font-bold mt-1 text-emerald-700">Menyalin...</span>
-                    </div>
-                  ) : isListening ? (
-                    <div className="flex flex-col items-center justify-center text-emerald-600">
-                      <Mic className="w-8 h-8 animate-pulse text-emerald-600" />
-                      <span className="text-[10px] font-bold mt-1 text-emerald-700">Mendengar...</span>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center text-zinc-700 group-hover:text-emerald-600 transition-colors">
-                      <Mic className="w-8 h-8" />
-                      <span className="text-[10px] font-bold mt-1 text-zinc-500 group-hover:text-emerald-600">
-                        Bicara
-                      </span>
-                    </div>
-                  )}
+                <div
+                  className={`absolute w-28 h-28 sm:w-36 sm:h-36 rounded-full pointer-events-none transition-all duration-300 ease-out ${
+                    isSpeaking
+                      ? 'scale-115 opacity-80 bg-[radial-gradient(circle,rgba(66,133,244,0.25)_0%,rgba(234,67,53,0.12)_60%,transparent_75%)]'
+                      : isListening
+                      ? 'scale-110 opacity-90 animate-pulse bg-[radial-gradient(circle,rgba(16,185,129,0.28)_0%,transparent_70%)]'
+                      : 'scale-100 opacity-30 bg-[radial-gradient(circle,rgba(52,168,83,0.12)_0%,transparent_70%)]'
+                  }`}
+                />
+
+                {/* Center Voice Orb Button */}
+                <div
+                  onClick={toggleListening}
+                  className={`relative w-20 h-20 sm:w-28 sm:h-28 rounded-full cursor-pointer select-none group flex items-center justify-center z-10 transition-transform duration-200 active:scale-95 ${
+                    isSpeaking ? 'scale-105' : isListening ? 'scale-105' : 'hover:scale-105'
+                  }`}
+                >
+                  {/* Multi-gradient ring */}
+                  <div
+                    className={`absolute inset-0 rounded-full transition-all duration-300 ${
+                      isSpeaking
+                        ? 'bg-gradient-to-tr from-blue-500 via-emerald-400 to-amber-400 shadow-[0_8px_30px_rgba(66,133,244,0.35)]'
+                        : isListening
+                        ? 'bg-gradient-to-tr from-emerald-500 via-teal-400 to-blue-500 shadow-[0_8px_30px_rgba(16,185,129,0.35)] animate-pulse'
+                        : isLoading
+                        ? 'bg-gradient-to-tr from-amber-400 via-purple-400 to-pink-500 shadow-[0_8px_25px_rgba(251,188,5,0.3)] animate-spin'
+                        : 'bg-gradient-to-tr from-blue-500 via-emerald-500 to-teal-400 shadow-[0_6px_20px_rgba(16,185,129,0.25)] group-hover:shadow-[0_8px_30px_rgba(16,185,129,0.35)]'
+                    }`}
+                  />
+
+                  {/* Inner Core: Crisp White Surface */}
+                  <div className="absolute inset-1.5 rounded-full bg-white shadow-inner flex items-center justify-center">
+                    {isLoading ? (
+                      <div className="flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-blue-500 animate-bounce" />
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce delay-100" />
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-bounce delay-200" />
+                      </div>
+                    ) : isSpeaking ? (
+                      <div className="flex items-center gap-0.5 sm:gap-1 h-6 sm:h-7">
+                        {[0.4, 0.9, 0.6, 1.0, 0.7, 0.85, 0.4].map((h, i) => (
+                          <span
+                            key={i}
+                            style={{ height: `${h * 20}px` }}
+                            className={`w-0.5 sm:w-1 rounded-full animate-pulse ${
+                              i % 4 === 0
+                                ? 'bg-blue-500'
+                                : i % 4 === 1
+                                ? 'bg-emerald-500'
+                                : i % 4 === 2
+                                ? 'bg-amber-500'
+                                : 'bg-rose-500'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    ) : isTranscribingAudio ? (
+                      <div className="flex flex-col items-center justify-center text-emerald-600">
+                        <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-spin text-emerald-600" />
+                        <span className="text-[9px] font-bold mt-0.5 text-emerald-700">Menyalin...</span>
+                      </div>
+                    ) : isListening ? (
+                      <div className="flex flex-col items-center justify-center text-emerald-600">
+                        {/* Dynamic Sound Wave Bars inside the Orb */}
+                        <div className="flex items-center gap-0.5 sm:gap-1 h-5 sm:h-6">
+                          {[0.4, 0.85, 0.55, 1.0, 0.7, 0.9, 0.45].map((h, i) => (
+                            <span
+                              key={i}
+                              style={{ height: `${h * 18}px` }}
+                              className={`w-0.5 sm:w-1 rounded-full animate-pulse ${
+                                i % 3 === 0
+                                  ? 'bg-emerald-500'
+                                  : i % 3 === 1
+                                  ? 'bg-teal-500'
+                                  : 'bg-blue-500'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <span className="text-[8px] sm:text-[9px] font-bold mt-0.5 text-emerald-700 uppercase tracking-wider">
+                          Mendengar...
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center text-zinc-700 group-hover:text-emerald-600 transition-colors">
+                        <Mic className="w-5 h-5 sm:w-7 sm:h-7" />
+                        <span className="text-[9px] font-bold mt-0.5 text-zinc-500 group-hover:text-emerald-600">
+                          Bicara
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
               {/* Status Indicator & Live Captions */}
-              <div className="mt-4 z-10 text-center w-full max-w-lg px-2">
+              <div className="mt-2 sm:mt-2.5 z-10 text-center w-full max-w-lg px-1 sm:px-2">
                 {isTranscribingAudio ? (
-                  <div className="flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs animate-pulse">
+                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs animate-pulse">
                     <Sparkles className="w-3.5 h-3.5 text-emerald-600 animate-spin" />
                     <span>Menyalin suara Anda ke teks (Gemini AI)...</span>
                   </div>
                 ) : micPermissionDenied ? (
-                  <div className="flex flex-col items-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs max-w-md mx-auto">
-                    <span className="flex items-center gap-1.5 text-amber-800 font-bold">
+                  <div className="flex flex-col items-center gap-1 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-semibold shadow-xs max-w-md mx-auto">
+                    <span className="flex items-center gap-1 text-amber-800 font-bold">
                       <span>⚠️ Akses mikrofon terhalang izin browser</span>
-                    </span>
-                    <span className="text-[11px] text-amber-700 font-normal">
-                      Buka aplikasi di tab baru agar browser mengizinkan mikrofon secara penuh:
                     </span>
                     <a
                       href={typeof window !== 'undefined' ? window.location.href : '#'}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-1 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
+                      className="mt-0.5 flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>Buka di Tab Baru (Akses Mikrofon Penuh)</span>
+                      <span>Buka di Tab Baru</span>
                     </a>
                   </div>
                 ) : speechNetworkNotice ? (
-                  <div className="flex flex-col items-center gap-2 px-4 py-3 rounded-2xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium shadow-xs max-w-md mx-auto animate-in fade-in">
-                    <div className="flex items-center gap-1.5 text-amber-900 font-bold">
-                      <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
-                      <span>Layanan Suara Terhalang Jaringan / Browser</span>
+                  <div className="flex flex-col items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-xs font-medium shadow-xs max-w-md mx-auto">
+                    <div className="flex items-center gap-1 text-amber-900 font-bold">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                      <span>Layanan Suara Terhalang Jaringan</span>
                     </div>
-                    <p className="text-[11px] text-amber-800 text-center leading-relaxed">
-                      Pengenal suara Google memerlukan koneksi online. Jika menggunakan <strong>Brave Browser</strong>, matikan <strong>Brave Shields</strong> untuk <code>localhost</code>, atau gunakan <strong>Google Chrome / Edge</strong>.
-                    </p>
-                    <div className="flex items-center gap-2 pt-1">
+                    <div className="flex items-center gap-2 pt-0.5">
                       <button
                         onClick={() => {
                           setSpeechNetworkNotice(false);
                           startListening();
                         }}
-                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
+                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center gap-1 cursor-pointer"
                       >
-                        <Mic className="w-3.5 h-3.5" />
-                        <span>Coba Bicara Sekarang</span>
+                        <Mic className="w-3 h-3" />
+                        <span>Coba Bicara</span>
                       </button>
                       <button
                         onClick={() => setSpeechNetworkNotice(false)}
-                        className="px-3 py-1.5 rounded-xl bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 text-xs font-semibold cursor-pointer transition-colors"
+                        className="px-2.5 py-1 rounded-lg bg-white border border-amber-300 text-amber-800 text-xs font-semibold cursor-pointer"
                       >
                         Tutup
                       </button>
                     </div>
                   </div>
                 ) : !isSTTSupported ? (
-                  <div className="flex items-center justify-center gap-2 px-3 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium shadow-xs">
-                    <span>Browser Anda belum mendukung input suara otomatis. Gunakan kolom teks di bawah.</span>
+                  <div className="flex items-center justify-center gap-2 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 text-xs font-medium shadow-xs">
+                    <span>Browser belum mendukung input suara. Gunakan kolom teks di bawah.</span>
                   </div>
                 ) : isSpeaking ? (
-                  <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold shadow-xs">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold shadow-xs">
                     <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse" />
-                    <span>AI sedang berbicara (Bahasa Indonesia)...</span>
+                    <span>AI sedang berbicara...</span>
                     <button
                       onClick={stopSpeaking}
                       className="ml-1 text-[11px] underline text-blue-800 hover:text-blue-900 font-bold cursor-pointer"
@@ -1413,28 +1525,28 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                     </button>
                   </div>
                 ) : isListening ? (
-                  <div className="flex flex-col items-center gap-2 w-full">
+                  <div className="flex flex-col items-center gap-1.5 w-full">
                     {/* Live speech transcription card when user is speaking */}
                     {(transcript || interimTranscript || inputText) ? (
-                      <div className="w-full p-3.5 sm:p-4 rounded-2xl bg-white border-2 border-emerald-500 shadow-md flex flex-col gap-2 text-left animate-in fade-in zoom-in-95 duration-150">
+                      <div className="w-full p-2.5 sm:p-3.5 rounded-xl sm:rounded-2xl bg-white border-2 border-emerald-500 shadow-md flex flex-col gap-1.5 text-left animate-in fade-in zoom-in-95 duration-150">
                         <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5 text-emerald-700 text-xs font-bold uppercase tracking-wider">
-                            <Mic className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
+                          <div className="flex items-center gap-1.5 text-emerald-700 text-[11px] sm:text-xs font-bold uppercase tracking-wider">
+                            <Mic className="w-3 h-3 text-emerald-600 animate-pulse" />
                             <span>Mendengarkan Ucapan Anda:</span>
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
+                          <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-semibold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping" />
                             <span>Merekam</span>
                           </div>
                         </div>
 
-                        <div className="text-sm sm:text-base font-semibold text-zinc-900 leading-relaxed break-words min-h-[36px] bg-emerald-50/60 p-3 rounded-xl border border-emerald-200">
+                        <div className="text-xs sm:text-sm font-semibold text-zinc-900 leading-snug break-words min-h-[28px] sm:min-h-[34px] bg-emerald-50/60 p-2 sm:p-2.5 rounded-lg sm:rounded-xl border border-emerald-200">
                           "{transcript || interimTranscript || inputText}"
-                          <span className="inline-block w-1.5 h-4 ml-1 bg-emerald-500 animate-pulse align-middle" />
+                          <span className="inline-block w-1.5 h-3.5 ml-1 bg-emerald-500 animate-pulse align-middle" />
                         </div>
 
                         {/* Live Sound Level Meter */}
-                        <div className="w-full px-3 py-1 rounded-lg bg-zinc-50 border border-zinc-200/60 flex items-center gap-2">
+                        <div className="w-full px-2.5 py-1 rounded-lg bg-zinc-50 border border-zinc-200/60 flex items-center gap-2">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider shrink-0">
                             Sinyal Suara:
                           </span>
@@ -1442,14 +1554,14 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                             <div
                               ref={volumeBarRef}
                               style={{ width: '0%' }}
-                              className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-75 rounded-full"
+                              className="live-sound-signal-bar h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-75 rounded-full"
                             />
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between pt-1.5 border-t border-zinc-100 text-[11px]">
+                        <div className="flex items-center justify-between pt-1 border-t border-zinc-100 text-[10px] sm:text-[11px]">
                           <span className="text-zinc-500 font-medium">
-                            ⏱️ Berhenti bicara sejenak untuk otomatis terkirim
+                            ⏱️ Jeda bicara 3-4 detik untuk otomatis terkirim
                           </span>
                           <button
                             onClick={() => {
@@ -1459,40 +1571,37 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                                 handleSendQuery(textToSend);
                               }
                             }}
-                            className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer"
+                            className="px-2.5 py-0.5 sm:py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold flex items-center gap-1 transition-all active:scale-95 shadow-xs cursor-pointer text-xs"
                           >
                             <Send className="w-3 h-3" />
-                            <span>Kirim Sekarang</span>
+                            <span>Kirim</span>
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center gap-2 w-full max-w-sm">
-                        <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs">
-                          <span className="w-2 h-2 rounded-full bg-emerald-600 animate-ping" />
-                          <span>Mikrofon Aktif — Silakan Bicara Sekarang...</span>
+                      <div className="flex flex-col items-center gap-1.5 w-full max-w-sm">
+                        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-semibold shadow-xs">
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping" />
+                          <span>Mikrofon Aktif — Silakan Bicara...</span>
                         </div>
-                        <span className="text-[11px] text-zinc-500 font-medium text-center">
-                          Ucapkan pertanyaan seputar stok produk, omzet penjualan, atau konsultasi toko Anda
-                        </span>
 
                         {/* Live Sound Level Meter */}
-                        <div className="w-full mt-1 px-3 py-1.5 rounded-xl bg-white border border-emerald-200/80 shadow-2xs flex items-center gap-2.5">
+                        <div className="w-full px-2.5 py-1 rounded-lg bg-white border border-emerald-200/80 shadow-2xs flex items-center gap-2">
                           <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider shrink-0 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             Level Mic:
                           </span>
-                          <div className="flex-1 h-2 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200/60">
+                          <div className="flex-1 h-1.5 rounded-full bg-zinc-100 overflow-hidden border border-zinc-200/60">
                             <div
                               ref={volumeBarRef}
                               style={{ width: '0%' }}
-                              className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-500 transition-all duration-75 rounded-full"
+                              className="live-sound-signal-bar h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-amber-500 transition-all duration-75 rounded-full"
                             />
                           </div>
                         </div>
 
                         {sttError && (
-                          <div className="w-full mt-1 p-2 rounded-xl bg-amber-50 border border-amber-300 text-amber-900 text-[11px] font-medium text-left">
+                          <div className="w-full p-1.5 rounded-lg bg-amber-50 border border-amber-300 text-amber-900 text-[10px] font-medium text-left">
                             ⚠️ {sttError}
                           </div>
                         )}
@@ -1502,18 +1611,17 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 ) : (
                   <button
                     onClick={startListening}
-                    className="flex items-center gap-1.5 px-3.5 py-1 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 hover:text-zinc-900 text-xs font-semibold shadow-xs transition-all active:scale-98"
+                    className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-700 hover:text-zinc-900 text-xs font-semibold shadow-xs transition-all active:scale-98"
                   >
                     <Mic className="w-3.5 h-3.5 text-emerald-600" />
                     <span>Ketuk bulatan atau tombol mic untuk mulai bicara</span>
                   </button>
                 )}
               </div>
-
             </div>
 
             {/* Conversation Log: Soft Off-White Background */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3.5 min-h-[160px] max-h-[320px] bg-zinc-50/70">
+            <div className="flex-1 overflow-y-auto px-4 py-3 sm:px-5 sm:py-4 space-y-3 min-h-0 bg-zinc-50/70">
               {messages.map((msg) => (
                 <div
                   key={msg.id}
@@ -1605,8 +1713,8 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             </div>
 
             {/* Quick Suggestion Chips: Crisp White Buttons */}
-            <div className="px-5 py-2.5 bg-white border-t border-zinc-100 flex items-center gap-2 overflow-x-auto no-scrollbar">
-              <span className="text-[11px] font-semibold text-zinc-400 shrink-0">
+            <div className="px-3 py-1.5 sm:px-5 sm:py-2 bg-white border-t border-zinc-100 flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar shrink-0">
+              <span className="text-[10px] sm:text-[11px] font-semibold text-zinc-400 shrink-0">
                 Saran:
               </span>
               {suggestedPrompts.map((prompt, idx) => (
@@ -1614,7 +1722,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                   key={idx}
                   onClick={() => handleSendQuery(prompt)}
                   disabled={isLoading}
-                  className="px-3 py-1 rounded-full text-[11px] font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-900 border border-zinc-200 whitespace-nowrap transition-colors shrink-0 disabled:opacity-50"
+                  className="px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-[11px] font-medium bg-zinc-50 hover:bg-zinc-100 text-zinc-700 hover:text-zinc-900 border border-zinc-200 whitespace-nowrap transition-colors shrink-0 disabled:opacity-50"
                 >
                   "{prompt}"
                 </button>
@@ -1622,12 +1730,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             </div>
 
             {/* Bottom Input Field: Clean White Surface */}
-            <div className="p-3.5 bg-white border-t border-zinc-200/80 flex items-center gap-2">
+            <div className="p-2 sm:p-3 bg-white border-t border-zinc-200/80 flex items-center gap-2 shrink-0">
               <button
                 type="button"
                 id="btn-mic-toggle-bottom"
                 onClick={toggleListening}
-                className={`p-3 rounded-2xl transition-all duration-200 active:scale-95 flex items-center justify-center shrink-0 ${
+                className={`p-2.5 sm:p-3 rounded-xl sm:rounded-2xl transition-all duration-200 active:scale-95 flex items-center justify-center shrink-0 ${
                   isListening
                     ? 'bg-rose-600 text-white shadow-md animate-pulse ring-4 ring-rose-100'
                     : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs'
