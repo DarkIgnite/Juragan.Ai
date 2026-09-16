@@ -817,6 +817,11 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognition.onerror = (event: any) => {
         console.warn('[Juragan.AI] Speech recognition error event:', event.error);
         if (event.error === 'no-speech' || event.error === 'aborted') {
+          if (isMobile) {
+            // On mobile, silence timeout stops cleanly to avoid start/stop chime loop
+            isListeningDesiredRef.current = false;
+            setIsListening(false);
+          }
           return;
         }
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
@@ -835,15 +840,20 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
         const captured = (currentLiveInputRef.current || transcript).trim();
         if (captured && captured.length > 1) {
-          // On mobile, utterance finished! Automatically submit to chatbot
+          // Words detected! Automatically submit to chatbot
           stopListening(true);
         } else {
-          // If no speech detected yet, seamlessly restart a fresh session
-          setTimeout(() => {
-            if (isListeningDesiredRef.current) {
-              startSpeechRecognitionEngine();
-            }
-          }, 120);
+          // If on mobile and no words detected, DO NOT loop-restart (which plays start/end chimes repeatedly on Android)
+          if (isMobile) {
+            stopListening(false);
+          } else {
+            // On desktop PC, seamless restart
+            setTimeout(() => {
+              if (isListeningDesiredRef.current) {
+                startSpeechRecognitionEngine();
+              }
+            }, 150);
+          }
         }
       };
 
@@ -1507,30 +1517,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
                 )}
               </div>
 
-              {/* Quick 1-tap voice question chips */}
-              <div className="mt-3 flex flex-wrap items-center justify-center gap-1.5 max-w-lg z-10">
-                <span className="text-[10px] text-zinc-500 font-semibold mr-1">Tanya Cepat:</span>
-                {[
-                  'Berapa sisa stok paling sedikit?',
-                  'Produk apa yang paling laris?',
-                  'Berapa total omzet toko?',
-                  'Saran promo minggu ini',
-                ].map((chip) => (
-                  <button
-                    key={chip}
-                    onClick={() => {
-                      if (isSpeaking) stopSpeaking();
-                      if (isListening) stopListening();
-                      handleSendQuery(chip);
-                    }}
-                    disabled={isLoading}
-                    className="text-[11px] px-2.5 py-1 rounded-lg bg-white/90 hover:bg-emerald-50 border border-zinc-200 hover:border-emerald-300 text-zinc-700 hover:text-emerald-800 transition-all active:scale-95 shadow-2xs flex items-center gap-1 font-medium disabled:opacity-50 cursor-pointer"
-                  >
-                    <Sparkles className="w-2.5 h-2.5 text-emerald-600" />
-                    <span>{chip}</span>
-                  </button>
-                ))}
-              </div>
             </div>
 
             {/* Conversation Log: Soft Off-White Background */}
