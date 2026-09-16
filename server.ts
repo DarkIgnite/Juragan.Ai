@@ -1059,7 +1059,9 @@ app.post('/api/tts', async (req, res) => {
   });
 });
 
-// GET endpoint for direct audio streaming
+const ttsBufferCache = new Map<string, Buffer>();
+
+// GET endpoint for direct audio streaming (Universal cross-browser audio playback)
 app.get('/api/tts', async (req, res) => {
   const text = (req.query.text as string) || '';
   const cleanText = text.replace(/[*#_`~[\]]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -1068,12 +1070,26 @@ app.get('/api/tts', async (req, res) => {
     return res.status(400).send('Teks kosong.');
   }
 
+  const cacheKey = cleanText.substring(0, 200);
+  if (ttsBufferCache.has(cacheKey)) {
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(ttsBufferCache.get(cacheKey));
+  }
+
   try {
     const mp3Buffer = await generateIndonesianGoogleTTS(cleanText);
+    if (ttsBufferCache.size > 150) {
+      const first = ttsBufferCache.keys().next().value;
+      if (first) ttsBufferCache.delete(first);
+    }
+    ttsBufferCache.set(cacheKey, mp3Buffer);
+
     res.setHeader('Content-Type', 'audio/mpeg');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.send(mp3Buffer);
   } catch (err: any) {
+    console.warn('[Juragan.AI] GET /api/tts error:', err?.message);
     return res.status(500).send('Gagal membuat audio.');
   }
 });

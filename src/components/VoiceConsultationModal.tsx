@@ -466,52 +466,36 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     stopSpeaking();
     isSpeechCancelledRef.current = false;
 
-    // 1. Primary: Guaranteed Indonesian Studio Voice via server /api/tts
+    // 1. Primary: Direct MP3 Stream from GET /api/tts?text=... (100% universal across all browsers & mobile devices)
     try {
-      const res = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: spokenClean }),
-      });
+      const streamUrl = `/api/tts?text=${encodeURIComponent(spokenClean)}`;
+      const audio = new Audio(streamUrl);
+      audioPlayerRef.current = audio;
 
-      if (isSpeechCancelledRef.current || isMuted) return;
-
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.audioUrl && !isSpeechCancelledRef.current && !isMuted) {
-          const audio = new Audio(data.audioUrl);
-          audioPlayerRef.current = audio;
-
-          audio.onplay = () => {
-            if (!isSpeechCancelledRef.current) {
-              setIsSpeaking(true);
-            }
-          };
-
-          audio.onended = () => {
-            if (isSpeechCancelledRef.current) return;
-            setIsSpeaking(false);
-            audioPlayerRef.current = null;
-          };
-
-          audio.onerror = (err) => {
-            console.warn('[Juragan.AI] Audio playback error, using speech synthesis fallback:', err);
-            audioPlayerRef.current = null;
-            if (!isSpeechCancelledRef.current && !isMuted) {
-              playWithSpeechSynthesisFallback(spokenClean);
-            }
-          };
-
-          try {
-            await audio.play();
-            return;
-          } catch (playErr) {
-            console.warn('[Juragan.AI] Audio play blocked or failed:', playErr);
-          }
+      audio.onplay = () => {
+        if (!isSpeechCancelledRef.current) {
+          setIsSpeaking(true);
         }
-      }
-    } catch (apiErr) {
-      console.warn('[Juragan.AI] /api/tts endpoint error, falling back:', apiErr);
+      };
+
+      audio.onended = () => {
+        if (isSpeechCancelledRef.current) return;
+        setIsSpeaking(false);
+        audioPlayerRef.current = null;
+      };
+
+      audio.onerror = (err) => {
+        console.warn('[Juragan.AI] Direct audio stream error, falling back to Web Speech Synthesis:', err);
+        audioPlayerRef.current = null;
+        if (!isSpeechCancelledRef.current && !isMuted) {
+          playWithSpeechSynthesisFallback(spokenClean);
+        }
+      };
+
+      await audio.play();
+      return;
+    } catch (playErr) {
+      console.warn('[Juragan.AI] Audio play blocked or failed, falling back:', playErr);
     }
 
     // 2. Secondary: Fallback to Web Speech API
@@ -618,6 +602,20 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
   // Prompt browser for microphone permission & connect real-time hardware sound level meter (non-blocking)
   const initMicAndVolumeMeter = async (): Promise<MediaStream | null> => {
+    // ON MOBILE DEVICES (Android/iOS): The hardware microphone is strictly EXCLUSIVE!
+    // Running getUserMedia simultaneously starves SpeechRecognition, causing zero speech detection and 4-second timeout.
+    // On mobile, we give SpeechRecognition 100% exclusive access to the microphone.
+    const isMobile =
+      typeof window !== 'undefined' &&
+      (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+        navigator?.userAgent || ''
+      ) ||
+        window.innerWidth <= 768);
+
+    if (isMobile) {
+      return null;
+    }
+
     if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
       return null;
     }
@@ -817,11 +815,6 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       recognition.onerror = (event: any) => {
         console.warn('[Juragan.AI] Speech recognition error event:', event.error);
         if (event.error === 'no-speech' || event.error === 'aborted') {
-          if (isMobile) {
-            // On mobile, silence timeout stops cleanly to avoid start/stop chime loop
-            isListeningDesiredRef.current = false;
-            setIsListening(false);
-          }
           return;
         }
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
