@@ -73,6 +73,7 @@ export default function App() {
   const [isApiModalOpen, setIsApiModalOpen] = useState(false);
   const [isGoogleModalOpen, setIsGoogleModalOpen] = useState(false);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isSaleModalOpen, setIsSaleModalOpen] = useState(false);
   const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
 
@@ -183,13 +184,41 @@ export default function App() {
   };
 
   // Handlers
-  const handleSaveProduct = (newProdData: Omit<Product, 'id' | 'updatedAt'>) => {
-    const newProduct: Product = {
-      ...newProdData,
-      id: 'prod-' + Date.now(),
-      updatedAt: new Date().toISOString().split('T')[0],
-    };
-    setProducts((prev) => [newProduct, ...prev]);
+  const handleOpenAddProduct = () => {
+    setEditingProduct(null);
+    setIsProductModalOpen(true);
+  };
+
+  const handleEditProduct = (product: Product) => {
+    setEditingProduct(product);
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = (
+    newProdData: Omit<Product, 'id' | 'updatedAt'>,
+    editId?: string
+  ) => {
+    if (editId) {
+      setProducts((prev) =>
+        prev.map((p) =>
+          p.id === editId
+            ? {
+                ...p,
+                ...newProdData,
+                updatedAt: new Date().toISOString().split('T')[0],
+              }
+            : p
+        )
+      );
+    } else {
+      const newProduct: Product = {
+        ...newProdData,
+        id: 'prod-' + Date.now(),
+        updatedAt: new Date().toISOString().split('T')[0],
+      };
+      setProducts((prev) => [newProduct, ...prev]);
+    }
+    setEditingProduct(null);
   };
 
   const handleSaveTransaction = (newTxData: Omit<SaleTransaction, 'id'>) => {
@@ -255,7 +284,7 @@ export default function App() {
         apiConnected={apiConnected}
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        onOpenAddProduct={() => setIsProductModalOpen(true)}
+        onOpenAddProduct={handleOpenAddProduct}
         onOpenAddSale={() => setIsSaleModalOpen(true)}
       />
 
@@ -289,7 +318,7 @@ export default function App() {
                 onNavigateToContent={() => setActiveTab('content')}
                 onNavigateToProducts={handleNavigateToProducts}
                 onNavigateToTransactions={() => setActiveTab('transactions')}
-                onOpenAddProduct={() => setIsProductModalOpen(true)}
+                onOpenAddProduct={handleOpenAddProduct}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
                 onOpenVoiceConsultation={handleOpenVoiceConsultation}
               />
@@ -301,7 +330,7 @@ export default function App() {
                 products={userProducts}
                 transactions={userTransactions}
                 onNavigateToContent={() => setActiveTab('content')}
-                onOpenAddProduct={() => setIsProductModalOpen(true)}
+                onOpenAddProduct={handleOpenAddProduct}
                 onOpenAddSale={() => setIsSaleModalOpen(true)}
                 onOpenVoiceConsultation={handleOpenVoiceConsultation}
               />
@@ -319,7 +348,8 @@ export default function App() {
                 products={userProducts}
                 initialFilter={productFilter}
                 highlightProductId={highlightProductId}
-                onOpenAddProduct={() => setIsProductModalOpen(true)}
+                onOpenAddProduct={handleOpenAddProduct}
+                onEditProduct={handleEditProduct}
                 onOpenAddSaleForProduct={(p) => setIsSaleModalOpen(true)}
                 onGenerateContentForProduct={(p) => setActiveTab('content')}
                 onDeleteProduct={handleDeleteProduct}
@@ -364,8 +394,12 @@ export default function App() {
 
       <ProductManagementModal
         isOpen={isProductModalOpen}
-        onClose={() => setIsProductModalOpen(false)}
+        onClose={() => {
+          setIsProductModalOpen(false);
+          setEditingProduct(null);
+        }}
         userId={currentUser.id}
+        productToEdit={editingProduct}
         onSaveProduct={handleSaveProduct}
       />
 

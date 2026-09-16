@@ -12,6 +12,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   Table as TableIcon,
+  Pencil,
 } from 'lucide-react';
 
 interface ProductListViewProps {
@@ -19,6 +20,7 @@ interface ProductListViewProps {
   initialFilter?: 'all' | 'low-stock';
   highlightProductId?: string;
   onOpenAddProduct: () => void;
+  onEditProduct: (product: Product) => void;
   onOpenAddSaleForProduct: (product: Product) => void;
   onGenerateContentForProduct: (product: Product) => void;
   onDeleteProduct: (productId: string) => void;
@@ -29,6 +31,7 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
   initialFilter = 'all',
   highlightProductId,
   onOpenAddProduct,
+  onEditProduct,
   onOpenAddSaleForProduct,
   onGenerateContentForProduct,
   onDeleteProduct,
@@ -263,6 +266,20 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
                       {p.stock} {p.unit}
                     </span>
                   </div>
+
+                  {/* Quick Edit button on top-right of image */}
+                  <div className="absolute top-2.5 right-2.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEditProduct(p);
+                      }}
+                      className="p-1.5 rounded-full bg-white/90 hover:bg-white text-zinc-700 hover:text-blue-600 shadow-xs backdrop-blur-xs transition-all cursor-pointer"
+                      title="Edit Produk"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Details */}
@@ -291,10 +308,10 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
                   </div>
 
                   {/* Action Bar (Instagram Feed Action style) */}
-                  <div className="mt-3 pt-3 border-t border-zinc-100 flex items-center justify-between gap-2">
+                  <div className="mt-3 pt-3 border-t border-zinc-100 flex items-center justify-between gap-1.5">
                     <button
                       onClick={() => onOpenAddSaleForProduct(p)}
-                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold active:scale-[0.98] transition-all"
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-semibold active:scale-[0.98] transition-all cursor-pointer"
                       title="Catat Penjualan Cepat"
                     >
                       <ShoppingCart className="w-3.5 h-3.5" />
@@ -302,8 +319,16 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
                     </button>
 
                     <button
+                      onClick={() => onEditProduct(p)}
+                      className="inline-flex items-center justify-center p-1.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 transition-colors cursor-pointer"
+                      title="Edit Produk (Foto, Nama, Harga Jual, HPP, Stok)"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </button>
+
+                    <button
                       onClick={() => onGenerateContentForProduct(p)}
-                      className="inline-flex items-center justify-center p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors"
+                      className="inline-flex items-center justify-center p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 transition-colors cursor-pointer"
                       title="Buat Konten Promosi AI"
                     >
                       <Sparkles className="w-4 h-4" />
@@ -311,7 +336,7 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
 
                     <button
                       onClick={() => onDeleteProduct(p.id)}
-                      className="inline-flex items-center justify-center p-1.5 rounded-xl text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                      className="inline-flex items-center justify-center p-1.5 rounded-xl text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                       title="Hapus Produk"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -383,21 +408,28 @@ export const ProductListView: React.FC<ProductListViewProps> = ({
                         <div className="inline-flex items-center gap-1 justify-end">
                           <button
                             onClick={() => onOpenAddSaleForProduct(p)}
-                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors"
+                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors cursor-pointer"
                             title="Catat Jual"
                           >
                             <ShoppingCart className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => onEditProduct(p)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            title="Edit Produk"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => onGenerateContentForProduct(p)}
-                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                            className="p-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors cursor-pointer"
                             title="Promosi AI"
                           >
                             <Sparkles className="w-4 h-4" />
                           </button>
                           <button
                             onClick={() => onDeleteProduct(p.id)}
-                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                            className="p-1.5 rounded-lg text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             title="Hapus"
                           >
                             <Trash2 className="w-4 h-4" />

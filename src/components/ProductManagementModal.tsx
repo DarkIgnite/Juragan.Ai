@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Product } from '../types';
-import { X, PackagePlus, AlertCircle, TrendingUp, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { X, PackagePlus, AlertCircle, TrendingUp, Image as ImageIcon, Sparkles, Pencil, Upload, Trash2 } from 'lucide-react';
 import { calculateMargin, formatRupiah } from '../utils/formatters';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -10,7 +10,8 @@ interface ProductManagementModalProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string;
-  onSaveProduct: (product: Omit<Product, 'id' | 'updatedAt'>) => void;
+  productToEdit?: Product | null;
+  onSaveProduct: (product: Omit<Product, 'id' | 'updatedAt'>, editId?: string) => void;
 }
 
 const CATEGORIES = [
@@ -56,6 +57,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
   isOpen,
   onClose,
   userId,
+  productToEdit,
   onSaveProduct,
 }) => {
   const [name, setName] = useState('');
@@ -66,11 +68,64 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
   const [minStockAlert, setMinStockAlert] = useState<number>(5);
   const [unit, setUnit] = useState(UNITS[0]);
   const [imageUrl, setImageUrl] = useState(IMAGE_PRESETS[0].url);
-  const [showCustomUrlInput, setShowCustomUrlInput] = useState(false);
+  const [imageInputMode, setImageInputMode] = useState<'preset' | 'upload' | 'url'>('preset');
   const [error, setError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const isEditing = Boolean(productToEdit);
+
+  useEffect(() => {
+    if (productToEdit) {
+      setName(productToEdit.name || '');
+      setCategory(productToEdit.category || CATEGORIES[0]);
+      setCostPrice(productToEdit.costPrice || 0);
+      setSellingPrice(productToEdit.sellingPrice || 0);
+      setStock(productToEdit.stock || 0);
+      setMinStockAlert(productToEdit.minStockAlert ?? 5);
+      setUnit(productToEdit.unit || UNITS[0]);
+      setImageUrl(productToEdit.imageUrl || '');
+
+      if (productToEdit.imageUrl?.startsWith('data:image/')) {
+        setImageInputMode('upload');
+      } else if (productToEdit.imageUrl && !IMAGE_PRESETS.some((p) => p.url === productToEdit.imageUrl)) {
+        setImageInputMode('url');
+      } else {
+        setImageInputMode('preset');
+      }
+      setError('');
+    } else {
+      setName('');
+      setCategory(CATEGORIES[0]);
+      setCostPrice(15000);
+      setSellingPrice(25000);
+      setStock(20);
+      setMinStockAlert(5);
+      setUnit(UNITS[0]);
+      setImageUrl(IMAGE_PRESETS[0].url);
+      setImageInputMode('preset');
+      setError('');
+    }
+  }, [productToEdit, isOpen]);
 
   const marginPct = calculateMargin(sellingPrice, costPrice);
   const profitPerUnit = Math.max(0, sellingPrice - costPrice);
+
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Ukuran foto terlalu besar (maksimal 5MB).');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setImageUrl(reader.result as string);
+      setError('');
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,20 +142,21 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
       return;
     }
 
-    onSaveProduct({
-      userId,
-      name: name.trim(),
-      category,
-      costPrice,
-      sellingPrice,
-      stock,
-      minStockAlert,
-      unit,
-      imageUrl: imageUrl.trim() || undefined,
-    });
+    onSaveProduct(
+      {
+        userId,
+        name: name.trim(),
+        category,
+        costPrice,
+        sellingPrice,
+        stock,
+        minStockAlert,
+        unit,
+        imageUrl: imageUrl.trim() || undefined,
+      },
+      productToEdit?.id
+    );
 
-    setName('');
-    setImageUrl(IMAGE_PRESETS[0].url);
     setError('');
     onClose();
   };
@@ -119,7 +175,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
           />
 
           <motion.div
-            id="modal-add-product"
+            id="modal-product-management"
             initial={{ opacity: 0, scale: 0.96, y: 8 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
@@ -128,15 +184,23 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
           >
             <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <PackagePlus className="w-4 h-4" />
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs ${
+                    isEditing
+                      ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                      : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                  }`}
+                >
+                  {isEditing ? <Pencil className="w-4 h-4" /> : <PackagePlus className="w-4 h-4" />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-zinc-900">
-                    Tambah Produk Baru
+                    {isEditing ? 'Edit Produk' : 'Tambah Produk Baru'}
                   </h3>
                   <p className="text-xs text-zinc-500">
-                    Input katalog, foto produk, harga jual, dan stok aman.
+                    {isEditing
+                      ? 'Perbarui foto, nama, harga jual, HPP, atau stok toko Anda.'
+                      : 'Input katalog, foto produk, harga jual, dan stok aman.'}
                   </p>
                 </div>
               </div>
@@ -172,32 +236,103 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                 />
               </div>
 
-              {/* Product Image Preset Picker */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
+              {/* Product Image Section */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-semibold text-zinc-700 flex items-center gap-1.5">
                     <ImageIcon className="w-3.5 h-3.5 text-emerald-600" />
-                    Pilih Foto Produk
+                    Foto Produk
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
-                    className="text-[11px] font-medium text-emerald-700 hover:underline"
-                  >
-                    {showCustomUrlInput ? 'Pilih dari Preset' : '+ Input URL Sendiri'}
-                  </button>
+                  {imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setImageUrl('')}
+                      className="text-[11px] text-rose-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                      <span>Hapus Foto</span>
+                    </button>
+                  )}
                 </div>
 
-                {showCustomUrlInput ? (
-                  <input
-                    type="url"
-                    placeholder="https://images.unsplash.com/..."
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full px-3 py-2 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
-                  />
-                ) : (
-                  <div className="grid grid-cols-3 gap-2">
+                {/* Current Image Preview & Source Switcher */}
+                <div className="flex items-center gap-3 p-2.5 rounded-xl bg-zinc-50 border border-zinc-200">
+                  <div className="w-14 h-14 rounded-xl bg-white border border-zinc-200 overflow-hidden shrink-0 flex items-center justify-center relative">
+                    {imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-zinc-300" />
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs font-semibold text-zinc-900 truncate">
+                      {imageUrl ? 'Foto Terpasang' : 'Belum Ada Foto'}
+                    </div>
+                    <p className="text-[10px] sm:text-[11px] text-zinc-500 truncate">
+                      Pilih dari preset, upload dari galeri HP, atau link URL
+                    </p>
+
+                    {/* Mode selection buttons */}
+                    <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode('preset')}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
+                          imageInputMode === 'preset'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                        }`}
+                      >
+                        Preset
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setImageInputMode('upload');
+                          fileInputRef.current?.click();
+                        }}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold flex items-center gap-1 transition-colors cursor-pointer ${
+                          imageInputMode === 'upload'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                        }`}
+                      >
+                        <Upload className="w-2.5 h-2.5" />
+                        <span>Upload File</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setImageInputMode('url')}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-semibold transition-colors cursor-pointer ${
+                          imageInputMode === 'url'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-zinc-200/80 text-zinc-700 hover:bg-zinc-300'
+                        }`}
+                      >
+                        Link URL
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hidden File Input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageFileChange}
+                  className="hidden"
+                />
+
+                {/* Mode Contents */}
+                {imageInputMode === 'preset' && (
+                  <div className="grid grid-cols-3 gap-2 pt-1">
                     {IMAGE_PRESETS.map((p) => {
                       const isSelected = imageUrl === p.url;
                       return (
@@ -205,7 +340,7 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                           type="button"
                           key={p.name}
                           onClick={() => setImageUrl(p.url)}
-                          className={`flex items-center gap-2 p-1.5 rounded-xl border text-left transition-all ${
+                          className={`flex items-center gap-2 p-1.5 rounded-xl border text-left transition-all cursor-pointer ${
                             isSelected
                               ? 'border-emerald-500 bg-emerald-50/50 ring-2 ring-emerald-500/20'
                               : 'border-zinc-200 hover:border-zinc-300'
@@ -224,6 +359,31 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                       );
                     })}
                   </div>
+                )}
+
+                {imageInputMode === 'upload' && (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="p-3 sm:p-4 rounded-xl border-2 border-dashed border-emerald-300 bg-emerald-50/40 hover:bg-emerald-50/70 cursor-pointer text-center transition-colors flex flex-col items-center justify-center gap-1.5"
+                  >
+                    <Upload className="w-5 h-5 text-emerald-600" />
+                    <span className="text-xs font-bold text-emerald-800">
+                      Klik untuk Pilih Foto dari Galeri / Kamera HP
+                    </span>
+                    <span className="text-[10px] text-zinc-500">
+                      Mendukung format JPG, PNG, WEBP (Maksimal 5MB)
+                    </span>
+                  </div>
+                )}
+
+                {imageInputMode === 'url' && (
+                  <input
+                    type="url"
+                    placeholder="Masukkan URL foto (https://...)"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full px-3.5 py-2 rounded-xl border border-zinc-200 text-xs text-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600"
+                  />
                 )}
               </div>
 
@@ -372,9 +532,13 @@ export const ProductManagementModal: React.FC<ProductManagementModalProps> = ({
                 <button
                   type="submit"
                   id="btn-submit-save-product"
-                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xs tactile-btn"
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold text-white transition-all shadow-xs tactile-btn cursor-pointer ${
+                    isEditing
+                      ? 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
+                  }`}
                 >
-                  Simpan Produk
+                  {isEditing ? 'Simpan Perubahan' : 'Simpan Produk'}
                 </button>
               </div>
             </form>
