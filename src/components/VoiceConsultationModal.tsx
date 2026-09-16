@@ -712,16 +712,29 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
         recognitionRef.current.onresult = null;
         recognitionRef.current.onerror = null;
         recognitionRef.current.onend = null;
-        recognitionRef.current.abort();
-      } catch {}
+        recognitionRef.current.stop();
+      } catch {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
       recognitionRef.current = null;
     }
 
     try {
+      const isMobile =
+        typeof window !== 'undefined' &&
+        (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile/i.test(
+          navigator?.userAgent || ''
+        ) ||
+          window.innerWidth <= 768);
+
       const recognition = new SpeechRec();
       recognition.lang = 'id-ID';
-      recognition.continuous = true; // TRUE: Continues listening across pauses and sentences
-      recognition.interimResults = true; // TRUE: Live real-time speech-to-text feedback
+      // CRITICAL FOR MOBILE: Mobile browsers (Android Chrome / iOS Safari) require continuous = false
+      // Setting continuous = true on Android Chrome breaks onresult entirely. Desktop PC Chrome uses continuous = true.
+      recognition.continuous = !isMobile;
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
@@ -731,27 +744,59 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
       };
 
       recognition.onresult = (event: any) => {
-        let finalWords = '';
-        let interimWords = '';
+        if (!event || !event.results || event.results.length === 0) return;
 
+        // Collect all transcripts across result items
+        const rawChunks: string[] = [];
         for (let i = 0; i < event.results.length; i++) {
-          const res = event.results[i];
-          if (!res || !res[0]) continue;
-          const piece = (res[0].transcript || '').trim();
-          if (!piece) continue;
-
-          if (res.isFinal) {
-            finalWords += (finalWords ? ' ' : '') + piece;
-          } else {
-            interimWords += (interimWords ? ' ' : '') + piece;
+          const item = event.results[i];
+          if (item && item[0] && item[0].transcript) {
+            const piece = item[0].transcript.trim();
+            if (piece) rawChunks.push(piece);
           }
         }
 
-        const combined = (finalWords + (interimWords ? (finalWords ? ' ' : '') + interimWords : '')).trim();
+        if (rawChunks.length === 0) return;
+
+        let combined = '';
+
+        // Mobile Android cumulative check:
+        // Android Google Speech often sends superset phrases where the last item contains the whole sentence
+        if (rawChunks.length > 1) {
+          const first = rawChunks[0].toLowerCase();
+          const last = rawChunks[rawChunks.length - 1];
+          if (last.toLowerCase().startsWith(first) && last.length >= rawChunks[0].length) {
+            combined = last;
+          }
+        }
+
+        // Standard desktop merge: final + interim chunks
+        if (!combined) {
+          let finalWords = '';
+          let interimWords = '';
+          for (let i = 0; i < event.results.length; i++) {
+            const res = event.results[i];
+            if (!res || !res[0]) continue;
+            const piece = (res[0].transcript || '').trim();
+            if (!piece) continue;
+
+            if (res.isFinal) {
+              finalWords += (finalWords ? ' ' : '') + piece;
+            } else {
+              interimWords += (interimWords ? ' ' : '') + piece;
+            }
+          }
+          combined = (finalWords + (interimWords ? (finalWords ? ' ' : '') + interimWords : '')).trim();
+        }
+
+        // Fallback to the latest chunk if still empty
+        if (!combined && rawChunks.length > 0) {
+          combined = rawChunks[rawChunks.length - 1];
+        }
 
         if (combined) {
           setTranscript(combined);
-          setInterimTranscript(interimWords);
+          setInterimTranscript(combined);
           setInputText(combined);
           currentLiveInputRef.current = combined;
           setNoSpeechNotice(false);
@@ -760,12 +805,12 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
             clearTimeout(silenceTimerRef.current);
           }
 
-          // Auto-submit after 1.8 seconds of silence when user stops talking
+          // Auto-submit after 1.5 seconds of silence when user stops talking
           silenceTimerRef.current = setTimeout(() => {
             if (isListeningDesiredRef.current && currentLiveInputRef.current.trim().length > 1) {
               stopListening(true);
             }
-          }, 1800);
+          }, 1500);
         }
       };
 
@@ -779,16 +824,21 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
           setSttError('Izin mikrofon belum diizinkan oleh browser.');
         } else if (event.error === 'network') {
           setSpeechNetworkNotice(true);
-          setSttError('Layanan pengenal suara Google terhambat jaringan/VPN. Anda dapat mengetik pertanyaan atau gunakan Tanya Cepat.');
+          setSttError('Layanan pengenal suara Google terhambat jaringan/VPN/Shields.');
         } else if (event.error === 'audio-capture') {
-          setSttError('Mikrofon tidak dapat menangkap suara. Pastikan mikrofon aktif di pengaturan Windows.');
+          setSttError('Mikrofon tidak dapat menangkap suara. Periksa mikrofon di pengaturan perangkat.');
         }
       };
 
       recognition.onend = () => {
-        // Chromium on Windows may timeout after 60s or network idle.
-        // IF user still desires to listen: ALWAYS instantiate a BRAND NEW instance! Never reuse ended object!
-        if (isListeningDesiredRef.current) {
+        if (!isListeningDesiredRef.current) return;
+
+        const captured = (currentLiveInputRef.current || transcript).trim();
+        if (captured && captured.length > 1) {
+          // On mobile, utterance finished! Automatically submit to chatbot
+          stopListening(true);
+        } else {
+          // If no speech detected yet, seamlessly restart a fresh session
           setTimeout(() => {
             if (isListeningDesiredRef.current) {
               startSpeechRecognitionEngine();
@@ -844,8 +894,13 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     if (recognitionRef.current) {
       try {
         recognitionRef.current.onend = null;
-        recognitionRef.current.abort();
-      } catch {}
+        // Call stop() so any pending speech in the pipeline is returned
+        recognitionRef.current.stop();
+      } catch {
+        try {
+          recognitionRef.current.abort();
+        } catch {}
+      }
       recognitionRef.current = null;
     }
 
