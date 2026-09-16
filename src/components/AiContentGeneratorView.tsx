@@ -488,6 +488,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     ctx.restore();
 
     // 2. Calculate Frame Dimensions according to layoutStyle and aspect ratio
+    const is916 = ratioToUse === '9:16';
     let frameW: number;
     let frameH: number;
     let frameX: number;
@@ -495,29 +496,31 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     let radius: number;
 
     if (activeTemplate.layoutStyle === 'circle') {
-      if (ratioToUse === '9:16') {
-        frameW = 780;
-        frameH = 780;
+      if (is916) {
+        frameW = 740;
+        frameH = 740;
         frameX = (width - frameW) / 2;
-        frameY = 370;
+        frameY = 360;
       } else {
-        frameW = 540;
-        frameH = 540;
+        // Feed 1:1 - compact circle so bottom content never gets cut off
+        frameW = 400;
+        frameH = 400;
         frameX = (width - frameW) / 2;
-        frameY = 200;
+        frameY = 175;
       }
       radius = frameW / 2;
-    } else if (ratioToUse === '9:16') {
+    } else if (is916) {
       frameW = 860;
-      frameH = 960;
+      frameH = 920;
       frameX = (width - frameW) / 2;
       frameY = 320;
       radius = frameW / 2;
     } else {
-      frameW = 680;
-      frameH = 550;
+      // Feed 1:1 - compact height so bottom content has generous breathing room
+      frameW = 620;
+      frameH = 410;
       frameX = (width - frameW) / 2;
-      frameY = 200;
+      frameY = 175;
       radius = frameW / 2;
     }
 
@@ -525,7 +528,8 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     if (activeTemplate.layoutStyle === 'neon') {
       ctx.save();
       ctx.fillStyle = '#18181B';
-      drawFramePath(ctx, activeTemplate.layoutStyle, frameX + 16, frameY + 16, frameW, frameH, radius);
+      const shadowOffset = is916 ? 16 : 12;
+      drawFramePath(ctx, activeTemplate.layoutStyle, frameX + shadowOffset, frameY + shadowOffset, frameW, frameH, radius);
       ctx.fill();
       ctx.restore();
     }
@@ -588,12 +592,12 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     ctx.save();
     if (activeTemplate.layoutStyle === 'neon') {
       ctx.strokeStyle = c.archBorder;
-      ctx.lineWidth = 12;
+      ctx.lineWidth = is916 ? 12 : 9;
       drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
       ctx.stroke();
     } else if (activeTemplate.layoutStyle === 'luxury') {
       ctx.strokeStyle = c.archBorder;
-      ctx.lineWidth = 8;
+      ctx.lineWidth = is916 ? 8 : 6;
       drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
       ctx.stroke();
 
@@ -603,46 +607,46 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       drawFramePath(
         ctx,
         activeTemplate.layoutStyle,
-        frameX + 10,
-        frameY + 10,
-        frameW - 20,
-        frameH - 20,
+        frameX + (is916 ? 10 : 8),
+        frameY + (is916 ? 10 : 8),
+        frameW - (is916 ? 20 : 16),
+        frameH - (is916 ? 20 : 16),
         Math.max(8, radius - 10)
       );
       ctx.stroke();
     } else {
       ctx.strokeStyle = c.archBorder;
-      ctx.lineWidth = 10;
+      ctx.lineWidth = is916 ? 10 : 8;
       drawFramePath(ctx, activeTemplate.layoutStyle, frameX, frameY, frameW, frameH, radius);
       ctx.stroke();
     }
     ctx.restore();
 
-    // 5. Header: Clean typography adapted to template tone
+    // 5. Header: Clean typography adapted to template tone & format ratio
     ctx.save();
     ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : (c.textMuted || c.textDark);
     ctx.textAlign = 'center';
 
-    const storePillY = ratioToUse === '9:16' ? 90 : 54;
-    ctx.font = '600 22px sans-serif';
+    const storePillY = is916 ? 90 : 44;
+    ctx.font = is916 ? '600 22px sans-serif' : '600 18px sans-serif';
     ctx.fillText(`• ${currentUser.storeName.toUpperCase()} •`, width / 2, storePillY);
 
-    const titleY = ratioToUse === '9:16' ? 180 : 124;
-    ctx.font = '900 56px sans-serif';
+    const titleY = is916 ? 180 : 100;
+    ctx.font = is916 ? '900 56px sans-serif' : '900 44px sans-serif';
     ctx.fillStyle = c.primary;
     ctx.fillText(activeTemplate.headline, width / 2, titleY);
 
-    const subY = titleY + 44;
-    ctx.font = '600 22px sans-serif';
+    const subY = titleY + (is916 ? 44 : 34);
+    ctx.font = is916 ? '600 22px sans-serif' : '600 17px sans-serif';
     ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : c.textDark;
     ctx.fillText(activeTemplate.subheadline, width / 2, subY);
     ctx.restore();
 
     // 6. Floating Promo Seal (Clean vector badge)
     if (promoText) {
-      const stickerX = frameX + frameW - 40;
-      const stickerY = frameY + 40;
-      const stickerR = 75;
+      const stickerX = frameX + frameW - (is916 ? 40 : 25);
+      const stickerY = frameY + (is916 ? 40 : 25);
+      const stickerR = is916 ? 75 : 56;
 
       ctx.save();
       ctx.fillStyle = c.accent;
@@ -651,75 +655,75 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
       ctx.fill();
 
       ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 4;
+      ctx.lineWidth = is916 ? 4 : 3;
       ctx.setLineDash([8, 6]);
       ctx.beginPath();
-      ctx.arc(stickerX, stickerY, stickerR - 6, 0, Math.PI * 2);
+      ctx.arc(stickerX, stickerY, stickerR - (is916 ? 6 : 4), 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.fillStyle = c.accentText || c.textDark;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillText('PROMO', stickerX, stickerY - 16);
-      ctx.font = '900 24px sans-serif';
+      ctx.font = is916 ? 'bold 20px sans-serif' : 'bold 16px sans-serif';
+      ctx.fillText('PROMO', stickerX, stickerY - (is916 ? 16 : 12));
+      ctx.font = is916 ? '900 24px sans-serif' : '900 18px sans-serif';
       ctx.fillStyle = c.primary;
       const cleanPromo = promoText.slice(0, 14);
-      ctx.fillText(cleanPromo, stickerX, stickerY + 14);
+      ctx.fillText(cleanPromo, stickerX, stickerY + (is916 ? 14 : 10));
       ctx.restore();
     }
 
-    // 7. Bottom Content
-    const bottomStartY = frameY + frameH + (ratioToUse === '9:16' ? 50 : 30);
+    // 7. Bottom Content - Proportional & Never Cut Off
+    const bottomStartY = frameY + frameH + (is916 ? 48 : 26);
 
     ctx.save();
     ctx.fillStyle = c.textDark;
-    ctx.font = 'bold 48px sans-serif';
+    ctx.font = is916 ? 'bold 48px sans-serif' : 'bold 38px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     ctx.fillText(selectedProduct?.name || 'Produk Favorit', width / 2, bottomStartY);
 
-    const hookY = bottomStartY + 64;
+    const hookY = bottomStartY + (is916 ? 64 : 48);
     const hook = generatedContent?.hook || 'Pilihan lezat dengan bahan berkualitas tinggi.';
-    ctx.font = 'normal 26px sans-serif';
+    ctx.font = is916 ? 'normal 26px sans-serif' : 'normal 21px sans-serif';
     ctx.fillStyle = activeTemplate.isDark ? '#94A3B8' : (c.textMuted || '#4A4639');
     ctx.fillText(hook.slice(0, 56) + (hook.length > 56 ? '...' : ''), width / 2, hookY);
     ctx.restore();
 
     // Price Badge
-    const priceY = hookY + 46;
+    const priceY = hookY + (is916 ? 46 : 34);
     const priceFormatted = formatRupiah(selectedProduct?.sellingPrice || 0);
-    const badgeW = 340;
-    const badgeH = 74;
+    const badgeW = is916 ? 340 : 300;
+    const badgeH = is916 ? 74 : 62;
     const badgeX = (width - badgeW) / 2;
 
     ctx.save();
     ctx.fillStyle = c.priceBg;
     ctx.beginPath();
-    ctx.roundRect(badgeX, priceY, badgeW, badgeH, 37);
+    ctx.roundRect(badgeX, priceY, badgeW, badgeH, badgeH / 2);
     ctx.fill();
 
     ctx.fillStyle = c.priceText;
-    ctx.font = 'bold 40px sans-serif';
+    ctx.font = is916 ? 'bold 40px sans-serif' : 'bold 32px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(priceFormatted, width / 2, priceY + badgeH / 2);
     ctx.restore();
 
-    // Clean CTA Bar (No phone emoji)
-    const ctaH = 80;
-    const ctaY = height - (ratioToUse === '9:16' ? 120 : 90);
+    // Clean CTA Bar
+    const ctaH = is916 ? 80 : 70;
     const ctaMargin = 70;
     const ctaW = width - ctaMargin * 2;
+    const ctaY = height - (is916 ? 120 : 88);
 
     ctx.save();
     ctx.fillStyle = c.ctaBg;
     ctx.beginPath();
-    ctx.roundRect(ctaMargin, ctaY, ctaW, ctaH, 24);
+    ctx.roundRect(ctaMargin, ctaY, ctaW, ctaH, 20);
     ctx.fill();
 
     ctx.fillStyle = c.ctaText;
-    ctx.font = 'bold 28px sans-serif';
+    ctx.font = is916 ? 'bold 28px sans-serif' : 'bold 24px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const wa = currentUser.whatsapp || '08xxxxxxxxxx';
@@ -1124,50 +1128,68 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
           {/* KARTU PREVIEW FOTO PROMO (Sesuai Gaya Desain & Palet Warna yang Dipilih) */}
           <div
             style={{ backgroundColor: activeTemplate.colors.bg }}
-            className={`w-full max-w-sm relative rounded-2xl overflow-hidden shadow-sm border border-zinc-200 select-none p-4 flex flex-col justify-between transition-colors duration-300 ${
-              aspectRatio === '9:16' ? 'aspect-[9/16]' : 'aspect-square'
+            className={`w-full max-w-sm relative rounded-2xl overflow-hidden shadow-sm border border-zinc-200 select-none flex flex-col justify-between transition-colors duration-300 ${
+              aspectRatio === '9:16' ? 'aspect-[9/16] p-4' : 'aspect-square p-2.5 sm:p-3'
             }`}
           >
             {/* Header Toko & Judul Atas */}
-            <div className="text-center pt-1">
+            <div className={`text-center shrink-0 ${aspectRatio === '9:16' ? 'pt-1' : 'pt-0.5'}`}>
               <div
-                className={`text-[10px] font-bold tracking-widest uppercase ${
-                  activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-600'
-                }`}
+                className={`font-bold tracking-widest uppercase ${
+                  aspectRatio === '9:16' ? 'text-[10px]' : 'text-[8.5px]'
+                } ${activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-600'}`}
               >
                 • {currentUser.storeName} •
               </div>
               <h2
                 style={{ color: activeTemplate.colors.primary }}
-                className="text-lg font-black tracking-tight mt-0.5 uppercase font-sans"
+                className={`font-black tracking-tight uppercase font-sans ${
+                  aspectRatio === '9:16' ? 'text-lg mt-0.5' : 'text-sm sm:text-base mt-0'
+                }`}
               >
                 {activeTemplate.headline}
               </h2>
               <div
-                className={`text-[9px] font-medium tracking-wide ${
-                  activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-500'
-                }`}
+                className={`font-medium tracking-wide ${
+                  aspectRatio === '9:16' ? 'text-[9px]' : 'text-[7.5px]'
+                } ${activeTemplate.isDark ? 'text-zinc-400' : 'text-zinc-500'}`}
               >
                 {activeTemplate.subheadline}
               </div>
             </div>
 
-            {/* JENDELA FOTO DENGAN VARIASI BENTUK FRAME */}
-            <div className="relative mx-auto w-full flex-1 my-2 flex items-center justify-center">
+            {/* JENDELA FOTO DENGAN VARIASI BENTUK FRAME (Flexible & Responsive) */}
+            <div
+              className={`relative mx-auto w-full flex-1 min-h-0 flex items-center justify-center ${
+                aspectRatio === '9:16' ? 'my-2' : 'my-1'
+              }`}
+            >
               <div
                 style={{ borderColor: activeTemplate.colors.archBorder }}
                 className={`relative overflow-hidden bg-zinc-100 transition-all duration-300 ${
                   activeTemplate.layoutStyle === 'arch'
-                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-t-[999px] rounded-b-xl border-4 shadow-xs'
+                    ? aspectRatio === '9:16'
+                      ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-t-[999px] rounded-b-xl border-4 shadow-xs'
+                      : 'w-3/4 h-full max-h-32 sm:max-h-36 rounded-t-[999px] rounded-b-lg border-3 shadow-xs'
                     : activeTemplate.layoutStyle === 'circle'
-                    ? 'w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 shadow-md'
+                    ? aspectRatio === '9:16'
+                      ? 'w-44 h-44 sm:w-52 sm:h-52 rounded-full border-4 shadow-md'
+                      : 'w-28 h-28 sm:w-32 sm:h-32 rounded-full border-3 shadow-md'
                     : activeTemplate.layoutStyle === 'luxury'
-                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 ring-2 ring-amber-400/40 shadow-xl'
+                    ? aspectRatio === '9:16'
+                      ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 ring-2 ring-amber-400/40 shadow-xl'
+                      : 'w-3/4 h-full max-h-32 sm:max-h-36 rounded-xl border-2 ring-2 ring-amber-400/40 shadow-md'
                     : activeTemplate.layoutStyle === 'neon'
-                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-3 border-zinc-900 shadow-[5px_5px_0px_#18181b]'
+                    ? aspectRatio === '9:16'
+                      ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-3 border-zinc-900 shadow-[5px_5px_0px_#18181b]'
+                      : 'w-3/4 h-full max-h-32 sm:max-h-36 rounded-xl border-2 border-zinc-900 shadow-[3px_3px_0px_#18181b]'
                     : activeTemplate.layoutStyle === 'clean'
-                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 shadow-xs'
-                    : 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-3xl border-4 shadow-md'
+                    ? aspectRatio === '9:16'
+                      ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-2xl border-2 shadow-xs'
+                      : 'w-3/4 h-full max-h-32 sm:max-h-36 rounded-xl border-2 shadow-xs'
+                    : aspectRatio === '9:16'
+                    ? 'w-4/5 h-full max-h-56 sm:max-h-64 rounded-3xl border-4 shadow-md'
+                    : 'w-3/4 h-full max-h-32 sm:max-h-36 rounded-2xl border-3 shadow-md'
                 }`}
               >
                 {selectedProduct?.imageUrl ? (
@@ -1179,13 +1201,13 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-zinc-800 text-white p-2 text-center">
-                    <Store className="w-8 h-8 mb-1 text-zinc-300" />
+                    <Store className={`${aspectRatio === '9:16' ? 'w-8 h-8 mb-1' : 'w-6 h-6 mb-0.5'} text-zinc-300`} />
                     <span className="text-xs font-bold">{selectedProduct?.name}</span>
                   </div>
                 )}
 
                 {/* Bayangan halus di bawah foto */}
-                <div className="absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
+                <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent pointer-events-none" />
               </div>
 
               {/* Floating Sticker Promo (Top Right of Photo) */}
@@ -1195,14 +1217,24 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                     backgroundColor: activeTemplate.colors.accent,
                     color: activeTemplate.colors.accentText || activeTemplate.colors.textDark,
                   }}
-                  className="absolute -top-1.5 right-3 w-14 h-14 rounded-full border-2 border-white shadow-sm flex flex-col items-center justify-center p-1 text-center animate-in zoom-in-95 duration-200 z-10"
+                  className={`absolute rounded-full border-2 border-white shadow-sm flex flex-col items-center justify-center p-0.5 text-center animate-in zoom-in-95 duration-200 z-10 ${
+                    aspectRatio === '9:16'
+                      ? '-top-1.5 right-3 w-14 h-14'
+                      : '-top-1 right-2 sm:right-5 w-10 h-10'
+                  }`}
                 >
-                  <span className="text-[8px] font-bold uppercase tracking-wider opacity-80 leading-none">
+                  <span
+                    className={`font-bold uppercase tracking-wider opacity-80 leading-none ${
+                      aspectRatio === '9:16' ? 'text-[8px]' : 'text-[6.5px]'
+                    }`}
+                  >
                     PROMO
                   </span>
                   <span
                     style={{ color: activeTemplate.colors.primary }}
-                    className="text-[11px] font-black leading-tight truncate max-w-[48px]"
+                    className={`font-black leading-tight truncate ${
+                      aspectRatio === '9:16' ? 'text-[11px] max-w-[48px]' : 'text-[8.5px] max-w-[34px]'
+                    }`}
                   >
                     {promoText}
                   </span>
@@ -1210,19 +1242,25 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
               )}
             </div>
 
-            {/* Bawah: Nama Produk, Deskripsi, Badge Harga, & CTA WhatsApp */}
-            <div className="space-y-2 text-center pb-1">
+            {/* Bawah: Nama Produk, Deskripsi, Badge Harga, & CTA WhatsApp (Never Cut Off) */}
+            <div
+              className={`text-center shrink-0 ${
+                aspectRatio === '9:16' ? 'space-y-2 pb-1' : 'space-y-1 sm:space-y-1.5 pb-0'
+              }`}
+            >
               <div>
                 <h3
                   style={{ color: activeTemplate.colors.textDark }}
-                  className="text-sm sm:text-base font-extrabold line-clamp-1 leading-tight"
+                  className={`font-extrabold line-clamp-1 leading-tight ${
+                    aspectRatio === '9:16' ? 'text-sm sm:text-base' : 'text-xs sm:text-[13px]'
+                  }`}
                 >
                   {selectedProduct?.name}
                 </h3>
                 <p
-                  className={`text-[10px] line-clamp-1 mt-0.5 ${
-                    activeTemplate.isDark ? 'text-zinc-300' : 'text-zinc-600'
-                  }`}
+                  className={`line-clamp-1 ${
+                    aspectRatio === '9:16' ? 'text-[10px] mt-0.5' : 'text-[8.5px] mt-0.2'
+                  } ${activeTemplate.isDark ? 'text-zinc-300' : 'text-zinc-600'}`}
                 >
                   {generatedContent?.hook || 'Pilihan lezat dengan bahan berkualitas tinggi.'}
                 </p>
@@ -1235,7 +1273,11 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                     backgroundColor: activeTemplate.colors.priceBg,
                     color: activeTemplate.colors.priceText,
                   }}
-                  className="px-4 py-1 rounded-full text-xs sm:text-sm font-mono font-extrabold shadow-2xs tracking-wide"
+                  className={`rounded-full font-mono font-extrabold shadow-2xs tracking-wide ${
+                    aspectRatio === '9:16'
+                      ? 'px-4 py-1 text-xs sm:text-sm'
+                      : 'px-3 py-0.5 text-[10px] sm:text-xs'
+                  }`}
                 >
                   {formatRupiah(selectedProduct?.sellingPrice || 0)}
                 </div>
@@ -1247,9 +1289,15 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
                   backgroundColor: activeTemplate.colors.ctaBg,
                   color: activeTemplate.colors.ctaText,
                 }}
-                className="w-full py-1.5 px-3 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5 shadow-2xs"
+                className={`w-full rounded-xl font-bold flex items-center justify-center gap-1.5 shadow-2xs ${
+                  aspectRatio === '9:16'
+                    ? 'py-1.5 px-3 text-[11px]'
+                    : 'py-1 px-2.5 text-[9px] sm:text-[10px]'
+                }`}
               >
-                <MessageCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <MessageCircle
+                  className={`${aspectRatio === '9:16' ? 'w-3.5 h-3.5' : 'w-3 h-3'} text-emerald-400 shrink-0`}
+                />
                 <span>Pesan Sekarang via WhatsApp</span>
               </div>
             </div>
