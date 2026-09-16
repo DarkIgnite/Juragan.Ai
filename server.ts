@@ -550,7 +550,9 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
     // Transcribe with specialized audio transcription models conforming to gemini-api skill:
     // gemini-3.5-transcribe is dedicated for audio transcription, followed by gemini-3.8-flash and gemini-flash-latest.
     const TRANSCRIBE_MODELS = [
-      'gemini-3.5-transcribe',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-2.5-flash',
       'gemini-3.8-flash',
       'gemini-flash-latest',
     ];
@@ -875,63 +877,7 @@ Keluarkan dalam format JSON murni:
   });
 });
 
-// Guaranteed Audio-to-Text Transcription via Gemini Multimodal Audio
-app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res) => {
-  try {
-    const { audioData, mimeType = 'audio/webm' } = req.body || {};
-    if (!audioData || typeof audioData !== 'string') {
-      return res.status(400).json({ error: 'Data rekaman audio diperlukan (base64 string).' });
-    }
 
-    const base64Clean = audioData.replace(/^data:[^;]+;base64,/, '').trim();
-    if (!base64Clean) {
-      return res.status(400).json({ error: 'Data audio kosong.' });
-    }
-
-    const ai = getGeminiClient();
-    if (!ai) {
-      return res.json({ text: '' });
-    }
-
-    const cleanMime = (mimeType || 'audio/webm').split(';')[0].trim();
-    const TRANSCRIBE_MODELS = ['gemini-3.5-transcribe', 'gemini-3.8-flash', 'gemini-flash-latest'];
-
-    for (const model of TRANSCRIBE_MODELS) {
-      try {
-        const response = await ai.models.generateContent({
-          model,
-          contents: [
-            {
-              inlineData: {
-                mimeType: cleanMime,
-                data: base64Clean,
-              },
-            },
-            {
-              text: 'Dengarkan audio suara Bahasa Indonesia ini dan transkripsikan kata-kata yang diucapkan menjadi teks persis seperti yang dikatakan oleh pembicara. KETENTUAN PENTING: Hanya kembalikan teks hasil transkripsi dalam Bahasa Indonesia murni. Jangan menambahkan tanda kutip, jangan memberi salam, dan jangan memberi penjelasan apapun. Jika audio hanya hening/noise/tidak ada kata yang terucap, kembalikan string kosong.',
-            },
-          ],
-        });
-
-        const rawText = response?.text?.trim() || '';
-        const cleanText = rawText
-          .replace(/^["'«»“„]+|["'«»”]+$/g, '')
-          .replace(/\b(EMPTY|HENING|TIDAK ADA SUARA)\b/gi, '')
-          .trim();
-
-        return res.json({ text: cleanText, modelUsed: model });
-      } catch (err: any) {
-        if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
-          break;
-        }
-      }
-    }
-
-    return res.json({ text: '' });
-  } catch {
-    return res.json({ text: '' });
-  }
-});
 
 // Helper: Convert linear PCM 24000Hz 16-bit mono into valid WAV Buffer
 function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitsPerSample = 16): Buffer {
@@ -959,12 +905,68 @@ function pcmToWav(pcmBuffer: Buffer, sampleRate = 24000, numChannels = 1, bitsPe
   return Buffer.concat([header, pcmBuffer]);
 }
 
+// Helper to split text into short natural chunks for Indonesian Google TTS (max ~140 chars)
+function splitTextForGoogleTTS(text: string, maxLen = 140): string[] {
+  const sentences = text.match(/[^.!?;\n]+[.!?;\n]*/g) || [text];
+  const chunks: string[] = [];
+
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if (trimmed.length <= maxLen) {
+      chunks.push(trimmed);
+    } else {
+      const words = trimmed.split(/\s+/);
+      let cur = '';
+      for (const w of words) {
+        if ((cur + ' ' + w).trim().length > maxLen) {
+          if (cur.trim()) chunks.push(cur.trim());
+          cur = w;
+        } else {
+          cur = cur ? cur + ' ' + w : w;
+        }
+      }
+      if (cur.trim()) chunks.push(cur.trim());
+    }
+  }
+  return chunks;
+}
+
+// Guaranteed Studio-Quality Indonesian Text-to-Speech (TTS)
+async function generateIndonesianGoogleTTS(text: string): Promise<Buffer> {
+  const chunks = splitTextForGoogleTTS(text, 140);
+  if (chunks.length === 0) {
+    throw new Error('Teks kosong.');
+  }
+
+  const buffers = await Promise.all(
+    chunks.map(async (chunk) => {
+      const url = `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=id&client=tw-ob`;
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          Accept: 'audio/mpeg, audio/*;q=0.9',
+          Referer: 'https://translate.google.com/',
+        },
+      });
+      if (!res.ok) {
+        throw new Error(`Google TTS HTTP ${res.status}`);
+      }
+      const arr = await res.arrayBuffer();
+      return Buffer.from(arr);
+    })
+  );
+
+  return Buffer.concat(buffers);
+}
+
 const ttsCache = new Map<string, string>();
 
 // Feature 4: Guaranteed Indonesian Text-to-Speech (TTS) Endpoint
-// Model: gemini-3.1-flash-tts-preview
+// Works consistently across ALL browsers (Desktop Chrome, Edge, Firefox, Safari, Mobile)
 app.post('/api/tts', async (req, res) => {
-  const { text, voiceName = 'Kore' } = req.body || {};
+  const { text, voiceName = 'Google Bahasa Indonesia' } = req.body || {};
   if (!text || typeof text !== 'string') {
     return res.status(400).json({ error: 'Teks diperlukan untuk text-to-speech.' });
   }
@@ -979,7 +981,7 @@ app.post('/api/tts', async (req, res) => {
   }
 
   // Check cache first for rapid sub-millisecond response
-  const cacheKey = `${voiceName}:${cleanText.substring(0, 160)}`;
+  const cacheKey = cleanText.substring(0, 200);
   if (ttsCache.has(cacheKey)) {
     return res.json({
       success: true,
@@ -990,37 +992,13 @@ app.post('/api/tts', async (req, res) => {
     });
   }
 
-  const ai = getGeminiClient();
-  if (!ai) {
-    return res.status(503).json({ error: 'Gemini client belum terkonfigurasi.' });
-  }
-
+  // 1. Primary: Google Studio Indonesian TTS (Identical to Mobile Android Google Voice)
   try {
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.1-flash-tts-preview',
-      contents: [{ parts: [{ text: cleanText }] }],
-      config: {
-        responseModalities: ['AUDIO'],
-        speechConfig: {
-          voiceConfig: {
-            prebuiltVoiceConfig: { voiceName },
-          },
-        },
-      },
-    });
+    const mp3Buffer = await generateIndonesianGoogleTTS(cleanText);
+    const audioUrl = `data:audio/mpeg;base64,${mp3Buffer.toString('base64')}`;
 
-    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) {
-      return res.status(502).json({ error: 'Tidak ada audio yang dihasilkan oleh Gemini TTS.' });
-    }
-
-    const rawPcm = Buffer.from(base64Audio, 'base64');
-    const wavBuffer = pcmToWav(rawPcm, 24000);
-    const wavBase64 = wavBuffer.toString('base64');
-    const audioUrl = `data:audio/wav;base64,${wavBase64}`;
-
-    // Store in cache (limit up to 60 items)
-    if (ttsCache.size > 60) {
+    // Cache management (limit up to 100 items)
+    if (ttsCache.size > 100) {
       const firstKey = ttsCache.keys().next().value;
       if (firstKey) ttsCache.delete(firstKey);
     }
@@ -1030,12 +1008,73 @@ app.post('/api/tts', async (req, res) => {
       success: true,
       audioUrl,
       cached: false,
-      voice: voiceName,
+      voice: 'Google Bahasa Indonesia',
       lang: 'id-ID',
     });
   } catch (err: any) {
-    console.info('[Juragan.AI] Gemini TTS unavailable, frontend will use browser speech synthesis.');
-    return res.status(500).json({ error: 'Gagal membuat suara bahasa Indonesia.', details: err?.message });
+    console.warn('[Juragan.AI] Google TTS attempt failed, trying Gemini fallback:', err?.message);
+  }
+
+  // 2. Secondary Fallback: Gemini TTS Preview if configured
+  const ai = getGeminiClient();
+  if (ai) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: [{ parts: [{ text: cleanText }] }],
+        config: {
+          responseModalities: ['AUDIO'],
+          speechConfig: {
+            voiceConfig: {
+              prebuiltVoiceConfig: { voiceName: 'Kore' },
+            },
+          },
+        },
+      });
+
+      const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+      if (base64Audio) {
+        const rawPcm = Buffer.from(base64Audio, 'base64');
+        const wavBuffer = pcmToWav(rawPcm, 24000);
+        const wavBase64 = wavBuffer.toString('base64');
+        const audioUrl = `data:audio/wav;base64,${wavBase64}`;
+
+        ttsCache.set(cacheKey, audioUrl);
+
+        return res.json({
+          success: true,
+          audioUrl,
+          cached: false,
+          voice: 'Gemini Indonesian Voice',
+          lang: 'id-ID',
+        });
+      }
+    } catch (geminiErr: any) {
+      console.warn('[Juragan.AI] Gemini TTS also unavailable:', geminiErr?.message);
+    }
+  }
+
+  return res.status(500).json({
+    error: 'Gagal membuat audio suara bahasa Indonesia.',
+  });
+});
+
+// GET endpoint for direct audio streaming
+app.get('/api/tts', async (req, res) => {
+  const text = (req.query.text as string) || '';
+  const cleanText = text.replace(/[*#_`~[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+
+  if (!cleanText) {
+    return res.status(400).send('Teks kosong.');
+  }
+
+  try {
+    const mp3Buffer = await generateIndonesianGoogleTTS(cleanText);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(mp3Buffer);
+  } catch (err: any) {
+    return res.status(500).send('Gagal membuat audio.');
   }
 });
 
