@@ -4,6 +4,7 @@ import { SEED_USERS, SEED_PRODUCTS, SEED_TRANSACTIONS } from './data/seedData';
 import { Header } from './components/Header';
 import { RoleSwitcherModal } from './components/RoleSwitcherModal';
 import { SetupApiModal } from './components/SetupApiModal';
+import { testGeminiConnection } from './lib/geminiKey';
 import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { ProductManagementModal } from './components/ProductManagementModal';
 import { SaleTransactionModal } from './components/SaleTransactionModal';
@@ -149,12 +150,11 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  // Check health and Gemini API key status from server
+  // Verify real Google Gemini API connectivity
   useEffect(() => {
-    fetch('/api/health')
-      .then((res) => res.json())
-      .then((data) => {
-        setApiConnected(Boolean(data.hasGeminiKey));
+    testGeminiConnection()
+      .then((res) => {
+        setApiConnected(res.connected);
       })
       .catch(() => {
         setApiConnected(false);
@@ -418,6 +418,7 @@ export default function App() {
         isOpen={isApiModalOpen}
         onClose={() => setIsApiModalOpen(false)}
         apiConnected={apiConnected}
+        onConnectionChange={setApiConnected}
       />
 
       <ProductManagementModal

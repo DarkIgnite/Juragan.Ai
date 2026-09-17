@@ -15,6 +15,7 @@ import {
   Mic,
 } from 'lucide-react';
 import { formatRupiah } from '../utils/formatters';
+import { getAiHeaders } from '../lib/geminiKey';
 
 interface AiAdvisorViewProps {
   currentUser: UserAccount;
@@ -24,6 +25,8 @@ interface AiAdvisorViewProps {
   onOpenAddProduct: () => void;
   onOpenAddSale: () => void;
   onOpenVoiceConsultation?: () => void;
+  onOpenApiSetup?: () => void;
+  apiConnected?: boolean;
 }
 
 export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
@@ -34,10 +37,12 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
   onOpenAddProduct,
   onOpenAddSale,
   onOpenVoiceConsultation,
+  onOpenApiSetup,
+  apiConnected,
 }) => {
   const [loading, setLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState<AdvisorAnalysisResponse | null>(null);
-  const [sourceType, setSourceType] = useState<string>('gemini-3.8-flash');
+  const [sourceType, setSourceType] = useState<string>('gemini-3.1-flash-lite');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const runAdvisorAnalysis = async () => {
@@ -47,7 +52,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
     try {
       const response = await fetch('/api/ai/advisor', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAiHeaders(),
         body: JSON.stringify({
           storeProfile: {
             storeName: currentUser.storeName,
@@ -67,7 +72,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
       const resJson = await response.json();
       if (resJson.success && resJson.data) {
         setAnalysisData(resJson.data);
-        setSourceType(resJson.source || 'gemini-3.8-flash');
+        setSourceType(resJson.source || 'gemini-3.1-flash-lite');
       } else {
         throw new Error('Format data analisis tidak sesuai.');
       }
@@ -136,7 +141,7 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
               AI Advisor Bisnis Juragan
             </h2>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700">
-              {sourceType.includes('gemini') ? 'Gemini 3.8 Flash' : 'Smart Heuristic'}
+              {sourceType.includes('gemini') ? 'Google Gemini AI' : 'Smart Heuristic (Lokal)'}
             </span>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-xl">
@@ -145,6 +150,21 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
+          {onOpenApiSetup && (
+            <button
+              onClick={onOpenApiSetup}
+              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
+                apiConnected
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100'
+              }`}
+              title="Periksa atau atur API Key Gemini"
+            >
+              <span className={`w-2 h-2 rounded-full ${apiConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
+              <span>{apiConnected ? 'Gemini AI Aktif' : 'Atur API Key'}</span>
+            </button>
+          )}
+
           {onOpenVoiceConsultation && (
             <button
               id="btn-open-voice-advisor"

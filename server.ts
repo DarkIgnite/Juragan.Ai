@@ -54,14 +54,40 @@ const aiActivityLogs: Array<{
 let totalAdvisorCalls = 14;
 let totalContentCalls = 29;
 
-// Lazy initialization of Gemini client
-function getGeminiClient(): GoogleGenAI | null {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+// Resolve Gemini API key from multiple sources:
+// 1. Client header 'x-gemini-api-key' (custom key stored by user)
+// 2. Body or query param 'apiKey' / 'customApiKey'
+// 3. Process environment variable GEMINI_API_KEY
+function resolveApiKey(req?: express.Request): string | null {
+  if (req) {
+    const headerKey = req.headers['x-gemini-api-key'];
+    if (typeof headerKey === 'string' && headerKey.trim() && headerKey !== 'MY_GEMINI_API_KEY') {
+      return headerKey.trim();
+    }
+    const bodyKey = req.body?.customApiKey || req.body?.apiKey;
+    if (typeof bodyKey === 'string' && bodyKey.trim() && bodyKey !== 'MY_GEMINI_API_KEY') {
+      return bodyKey.trim();
+    }
+    const queryKey = req.query?.apiKey;
+    if (typeof queryKey === 'string' && queryKey.trim() && queryKey !== 'MY_GEMINI_API_KEY') {
+      return queryKey.trim();
+    }
+  }
+  const envKey = process.env.GEMINI_API_KEY;
+  if (envKey && envKey !== 'MY_GEMINI_API_KEY' && envKey.trim()) {
+    return envKey.trim();
+  }
+  return null;
+}
+
+// Lazy initialization of Gemini client with optional explicit key
+function getGeminiClient(explicitKey?: string | null): GoogleGenAI | null {
+  const apiKey = (explicitKey && explicitKey.trim()) || process.env.GEMINI_API_KEY;
+  if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey.trim() === '') {
     return null;
   }
   return new GoogleGenAI({
-    apiKey,
+    apiKey: apiKey.trim(),
     httpOptions: {
       headers: {
         'User-Agent': 'aistudio-build',
@@ -100,6 +126,7 @@ async function generateJsonWithFallback(
       }
     } catch (err: any) {
       if (err?.status === 401 || err?.message?.includes('401') || err?.message?.includes('UNAUTHENTICATED')) {
+        console.warn(`[Juragan.AI] Gemini authentication failed on model ${model}:`, err?.message);
         break; // Stop immediately on authentication issue
       }
       // Log info when model is experiencing temporary demand spikes (e.g. 503) and cascade gracefully
@@ -109,12 +136,105 @@ async function generateJsonWithFallback(
   return null;
 }
 
+// Live connection verification endpoint
+app.all('/api/ai/test-connection', async (req, res) => {
+  const start = Date.now();
+  const keyToUse = resolveApiKey(req);
+
+  if (!keyToUse) {
+    return res.json({
+      connected: false,
+      reason: 'NO_KEY',
+      message: 'Kunci API Google Gemini belum dikonfigurasi. Masukkan API Key Anda untuk menghubungkan fitur AI.',
+    });
+  }
+
+  const isAqKey = keyToUse.startsWith('AQ.');
+  const keyPrefix = keyToUse.length > 8 ? `${keyToUse.substring(0, 6)}...${keyToUse.substring(keyToUse.length - 3)}` : 'Key terpasang';
+
+  const ai = getGeminiClient(keyToUse);
+  if (!ai) {
+    return res.json({
+      connected: false,
+      reason: 'INIT_FAILED',
+      keyPrefix,
+      isAqKey,
+      message: 'Gagal menginisialisasi Google GenAI SDK dengan kunci yang diberikan.',
+    });
+  }
+
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const response = await ai.models.generateContent({
+        model,
+        contents: 'Sebutkan "OK" dalam satu kata.',
+      });
+
+      if (response && response.text) {
+        return res.json({
+          connected: true,
+          modelUsed: model,
+          keyPrefix,
+          isAqKey,
+          latencyMs: Date.now() - start,
+          message: `Berhasil terhubung ke Google Gemini AI (${model})!`,
+        });
+      }
+    } catch (err: any) {
+      const status = err?.status || (err?.message?.includes('401') ? 401 : 500);
+      const errMsg = err?.message || String(err);
+
+      if (errMsg.includes('API_KEY_INVALID') || errMsg.includes('API key not valid')) {
+        return res.json({
+          connected: false,
+          reason: 'API_KEY_INVALID',
+          status: 400,
+          isAqKey: false,
+          keyPrefix,
+          latencyMs: Date.now() - start,
+          message: 'API Key tidak valid. Pastikan Anda menyalin seluruh karakter kunci dengan format standar (awalan "AIzaSy...") dari Google AI Studio.',
+          rawError: errMsg.substring(0, 300),
+        });
+      }
+
+      if (status === 401 || errMsg.includes('401') || errMsg.includes('UNAUTHENTICATED') || errMsg.includes('ACCESS_TOKEN_TYPE_UNSUPPORTED')) {
+        return res.json({
+          connected: false,
+          reason: isAqKey ? 'AQ_KEY_UNSUPPORTED' : 'AUTH_FAILED',
+          status: 401,
+          isAqKey,
+          keyPrefix,
+          latencyMs: Date.now() - start,
+          message: isAqKey
+            ? 'API Key saat ini berawalan "AQ." dan ditolak oleh Google API dengan kode 401 (ACCESS_TOKEN_TYPE_UNSUPPORTED). Gunakan API Key standar (awalan "AIzaSy...") dari Google AI Studio atau Google Cloud Console.'
+            : 'Autentikasi gagal (Status 401). Pastikan API Key Gemini Anda valid, aktif, dan memiliki akses ke Generative Language API.',
+          rawError: errMsg.substring(0, 300),
+        });
+      }
+
+      console.warn(`[Juragan.AI Test] Model ${model} test failed:`, errMsg);
+    }
+  }
+
+  return res.json({
+    connected: false,
+    reason: 'TIMEOUT_OR_UNAVAILABLE',
+    keyPrefix,
+    isAqKey,
+    latencyMs: Date.now() - start,
+    message: 'Tidak dapat memperoleh respons dari model Gemini (layanan mungkin sedang sibuk atau kuota habis).',
+  });
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
+  const resolvedKey = resolveApiKey(req);
   res.json({
     status: 'ok',
     appName: 'Juragan.AI',
-    hasGeminiKey: Boolean(process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY'),
+    hasGeminiKey: Boolean(resolvedKey),
+    isAqKey: Boolean(resolvedKey && resolvedKey.startsWith('AQ.')),
+    keyPrefix: resolvedKey ? `${resolvedKey.substring(0, 6)}...` : null,
     activeModel: CANDIDATE_MODELS[0],
   });
 });
@@ -142,7 +262,7 @@ app.post('/api/ai/advisor', async (req, res) => {
   const userName = storeProfile?.ownerName || 'Juragan';
   const storeName = storeProfile?.storeName || 'Toko UMKM';
 
-  const ai = getGeminiClient();
+  const ai = getGeminiClient(resolveApiKey(req));
 
   if (ai) {
     try {
@@ -305,7 +425,7 @@ app.post('/api/ai/content', async (req, res) => {
 
   const selectedPlatform = platform || 'instagram';
   const selectedTone = tone || 'santai';
-  const ai = getGeminiClient();
+  const ai = getGeminiClient(resolveApiKey(req));
 
   if (ai) {
     try {
@@ -540,7 +660,7 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
       return res.status(400).json({ error: 'Data audio kosong.' });
     }
 
-    const ai = getGeminiClient();
+    const ai = getGeminiClient(resolveApiKey(req));
     if (!ai) {
       return res.status(503).json({ error: 'AI client belum siap.' });
     }
@@ -550,9 +670,7 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
     // Transcribe with specialized audio transcription models conforming to gemini-api skill:
     // gemini-3.5-transcribe is dedicated for audio transcription, followed by gemini-3.8-flash and gemini-flash-latest.
     const TRANSCRIBE_MODELS = [
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-2.5-flash',
+      'gemini-3.5-transcribe',
       'gemini-3.8-flash',
       'gemini-flash-latest',
     ];
@@ -611,7 +729,7 @@ app.post(['/api/ai/voice-consultation', '/api/ai-voice-consultation'], async (re
 
   const userName = storeProfile?.ownerName || 'Juragan';
   const storeName = storeProfile?.storeName || 'Toko UMKM';
-  const ai = getGeminiClient();
+  const ai = getGeminiClient(resolveApiKey(req));
 
   // STREAMING RESPONSE HANDLER (ReadableStream / SSE)
   if (isStreamRequested) {
@@ -1016,11 +1134,11 @@ app.post('/api/tts', async (req, res) => {
   }
 
   // 2. Secondary Fallback: Gemini TTS Preview if configured
-  const ai = getGeminiClient();
+  const ai = getGeminiClient(resolveApiKey(req));
   if (ai) {
     try {
       const response = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-3.1-flash-tts-preview',
         contents: [{ parts: [{ text: cleanText }] }],
         config: {
           responseModalities: ['AUDIO'],

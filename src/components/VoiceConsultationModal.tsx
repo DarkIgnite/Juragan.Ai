@@ -14,6 +14,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { Product, SaleTransaction, UserAccount, VoiceConsultationMessage } from '../types';
+import { getAiHeaders } from '../lib/geminiKey';
 
 interface VoiceConsultationModalProps {
   isOpen: boolean;
@@ -559,7 +560,7 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
 
       const res = await fetch('/api/ai/transcribe-audio', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAiHeaders(),
         body: JSON.stringify({
           audioData: base64DataUrl,
           mimeType: audioBlob.type || 'audio/webm',
@@ -1039,10 +1040,9 @@ export const VoiceConsultationModal: React.FC<VoiceConsultationModalProps> = ({
     try {
       const response = await fetch('/api/ai-voice-consultation', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'text/event-stream',
-        },
+        headers: getAiHeaders({
+          Accept: 'text/event-stream',
+        }),
         body: JSON.stringify({
           query: trimmed,
           stream: true,

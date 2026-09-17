@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Product, UserAccount, ContentGenerationResult } from '../types';
 import { formatRupiah } from '../utils/formatters';
+import { getAiHeaders } from '../lib/geminiKey';
 import {
   Sparkles,
   Copy,
@@ -379,7 +380,7 @@ export const AiContentGeneratorView: React.FC<AiContentGeneratorViewProps> = ({
     try {
       const response = await fetch('/api/ai/content', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAiHeaders(),
         body: JSON.stringify({
           product: selectedProduct,
           platform: aspectRatio === '9:16' ? 'tiktok' : 'instagram',
