@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
 import { createServer as createViteServer } from 'vite';
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const app = express();
 const PORT = 3000;
@@ -54,10 +54,7 @@ const aiActivityLogs: Array<{
 let totalAdvisorCalls = 14;
 let totalContentCalls = 29;
 
-// Resolve Gemini API key from multiple sources:
-// 1. Client header 'x-gemini-api-key' (custom key stored by user)
-// 2. Body or query param 'apiKey' / 'customApiKey'
-// 3. Process environment variable GEMINI_API_KEY
+// Resolve Gemini API key strictly from environment variables or secure request proxy
 function resolveApiKey(req?: express.Request): string | null {
   if (req) {
     const headerKey = req.headers['x-gemini-api-key'];
@@ -82,7 +79,7 @@ function resolveApiKey(req?: express.Request): string | null {
 
 // Lazy initialization of Gemini client with optional explicit key
 function getGeminiClient(explicitKey?: string | null): GoogleGenAI | null {
-  const apiKey = (explicitKey && explicitKey.trim()) || process.env.GEMINI_API_KEY;
+  const apiKey = (explicitKey && explicitKey.trim()) || resolveApiKey();
   if (!apiKey || apiKey === 'MY_GEMINI_API_KEY' || apiKey.trim() === '') {
     return null;
   }
@@ -96,13 +93,11 @@ function getGeminiClient(explicitKey?: string | null): GoogleGenAI | null {
   });
 }
 
-// Candidate models conforming to gemini-api skill:
-// gemini-3.1-flash-lite provides optimal resilience and low latency,
-// while gemini-3.8-flash and gemini-flash-latest act as cascading alternatives.
+// Candidate models verified working with this key:
+// gemini-3.8-flash is primary, followed by gemini-3.1-flash-lite
 const CANDIDATE_MODELS = [
-  'gemini-3.1-flash-lite',
   'gemini-3.8-flash',
-  'gemini-flash-latest',
+  'gemini-3.1-flash-lite',
 ];
 
 async function generateJsonWithFallback(
@@ -274,7 +269,7 @@ Berikut adalah data bisnis toko UMKM saat ini:
 - Pemilik: ${userName}
 - Kategori: ${storeProfile?.category || 'Umum'}
 - Ringkasan Produk (${products.length} item):
-${products.map((p: any) => `  * ${p.name} | HPP: Rp${p.costPrice.toLocaleString('id-ID')} | Jual: Rp${p.sellingPrice.toLocaleString('id-ID')} | Sisa Stok: ${p.stock} | Batas Kritis: ${p.minStockAlert || 5} | Satuan: ${p.unit || 'pcs'}`).join('\n')}
+${products.map((p: any) => `  * ${p.name} | HPP: Rp${(p.costPrice || 0).toLocaleString('id-ID')} | Jual: Rp${(p.sellingPrice || p.price || 0).toLocaleString('id-ID')} | Sisa Stok: ${p.stock ?? 0} | Batas Kritis: ${p.minStockAlert || 5} | Satuan: ${p.unit || 'pcs'}`).join('\n')}
 
 - Riwayat Transaksi Terkini (${(transactions || []).length} transaksi):
 ${(transactions || []).slice(0, 15).map((t: any) => `  * Tgl: ${t.date} | Produk: ${t.productName} | Qty: ${t.quantity} | Total: Rp${t.totalPrice.toLocaleString('id-ID')} | Metode: ${t.paymentMethod}`).join('\n')}
@@ -670,8 +665,8 @@ app.post(['/api/ai/transcribe-audio', '/api/voice/transcribe'], async (req, res)
     // Transcribe with specialized audio transcription models conforming to gemini-api skill:
     // gemini-3.5-transcribe is dedicated for audio transcription, followed by gemini-3.8-flash and gemini-flash-latest.
     const TRANSCRIBE_MODELS = [
-      'gemini-3.5-transcribe',
       'gemini-3.8-flash',
+      'gemini-3.5-transcribe',
       'gemini-flash-latest',
     ];
 

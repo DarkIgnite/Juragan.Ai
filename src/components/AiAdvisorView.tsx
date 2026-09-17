@@ -25,8 +25,6 @@ interface AiAdvisorViewProps {
   onOpenAddProduct: () => void;
   onOpenAddSale: () => void;
   onOpenVoiceConsultation?: () => void;
-  onOpenApiSetup?: () => void;
-  apiConnected?: boolean;
 }
 
 export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
@@ -37,8 +35,6 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
   onOpenAddProduct,
   onOpenAddSale,
   onOpenVoiceConsultation,
-  onOpenApiSetup,
-  apiConnected,
 }) => {
   const [loading, setLoading] = useState(false);
   const [analysisData, setAnalysisData] = useState<AdvisorAnalysisResponse | null>(null);
@@ -150,21 +146,6 @@ export const AiAdvisorView: React.FC<AiAdvisorViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          {onOpenApiSetup && (
-            <button
-              onClick={onOpenApiSetup}
-              className={`inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer ${
-                apiConnected
-                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
-                  : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-700 hover:bg-amber-100'
-              }`}
-              title="Periksa atau atur API Key Gemini"
-            >
-              <span className={`w-2 h-2 rounded-full ${apiConnected ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'}`} />
-              <span>{apiConnected ? 'Gemini AI Aktif' : 'Atur API Key'}</span>
-            </button>
-          )}
-
           {onOpenVoiceConsultation && (
             <button
               id="btn-open-voice-advisor"

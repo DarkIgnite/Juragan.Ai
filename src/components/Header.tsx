@@ -27,7 +27,7 @@ interface HeaderProps {
   theme?: 'light' | 'dark';
   onToggleTheme?: () => void;
   onOpenRoleSwitcher: () => void;
-  onOpenApiSetup: () => void;
+  onOpenApiSetup?: () => void;
   onOpenGoogleAuth: () => void;
   onOpenVoiceConsultation?: () => void;
   apiConnected: boolean;
@@ -484,24 +484,6 @@ export const Header: React.FC<HeaderProps> = ({
                     >
                       <ArrowRightLeft className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
                       <span>Ganti Akun &amp; Toko Demo</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsProfileMenuOpen(false);
-                        onOpenApiSetup();
-                      }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 hover:dark:text-zinc-100 hover:bg-zinc-100 hover:dark:bg-zinc-800/70 transition-colors text-left cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <KeyRound className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                        <span>Koneksi AI Gemini</span>
-                      </div>
-                      <span
-                        className={`w-2 h-2 rounded-full ${
-                          apiConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'
-                        }`}
-                      />
                     </button>
                   </div>
                 </motion.div>
