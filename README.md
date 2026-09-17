@@ -299,7 +299,7 @@ juragan-ai/
 
 Proyek ini diajukan dan dikembangkan untuk **Lomba Hackathon UNISKA 2026**:
 
-- **Nama Tim**: Tim Juragan.AI
+- **Nama Tim**: carikan kami nama tim
 - **Institusi**: Universitas Islam Kalimantan Muhammad Arsyad Al Banjari (UNISKA)
 - **Kontak**: `ryanfadhila18@gmail.com`
 - **Lisensi**: MIT License — Terbuka untuk pengembangan digitalisasi UMKM Indonesia.
